@@ -5,9 +5,11 @@ import config.config as cfg
 import pandas as pd
 import json
 import gzip
+from utils.utils import read_ratings
+import numpy as np
 
 
-fname = cfg.vals["amazon_dir"] + "/grocery_and_gourmet_food/Grocery_and_Gourmet_Food_5.json.gz"
+fname = cfg.vals["amazon_dir"] + "/grocery_and_gourmet_food/Grocery_and_Gourmet_Food.csv"
 
 
 def parse(path):
@@ -23,7 +25,3 @@ def getDF(path):
     i += 1
   return pd.DataFrame.from_dict(df, orient='index')
 
-df = getDF(fname)
-
-print(df.head())
-print(list(df.columns))
