@@ -30,7 +30,7 @@ def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
     mrs_c = -(x_grad / x_c_grad)
     mrs_s = -(x_grad/ x_s_grad)
     
-    loss = torch.pow(torch.norm(mrs_c),2) - .1*torch.pow(torch.norm(mrs_s),2) + lmbda*utility_loss
+    loss = torch.pow(torch.norm(mrs_c),2) - torch.log(torch.pow(torch.norm(mrs_s),2)) + lmbda*utility_loss
 
     return loss
 
