@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch
-
+import numpy as np
 
 class EmbeddingGrad(nn.Module):
 
@@ -47,7 +47,7 @@ class EmbeddingGrad(nn.Module):
 if __name__ == "__main__":
 
     E = EmbeddingGrad(5, 8)
-    idx = [2, 2, 0]
+    idx = np.array([2, 2, 0])
     e = E(idx)
 
     e_bar = e.mean()
