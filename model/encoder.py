@@ -17,14 +17,23 @@ def loss_mse(y_true, y_hat):
 
     return mse
 
-def mrs_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s):
+def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s):
     err = y_true - y_hat
     err_c = y_true_c - y_hat_c
     err_s = y_true_s - y_hat_s
 
     err_all = torch.cat((err.flatten(), err_c.flatten(), err_s.flatten()))
-
     return torch.mean(torch.pow(err_all, 2))
+
+def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
+    
+    mrs_c = -(x_grad / x_c_grad)
+    mrs_s = -(x_grad/ x_s_grad)
+    
+    loss = torch.pow(torch.norm(mrs_c),2) - .1*torch.pow(torch.norm(mrs_s),2) + lmbda*utility_loss
+
+    return loss
+
 
 def get_input_layer(word_idx, n_items):
     x = torch.zeros((n_items,n_items)).float()
@@ -99,7 +108,7 @@ class Encoder1(nn.Module):
         :return: (tensor) tensor of gradients with respect to inputs
         """
         if indices.ndim == 1:
-            indices = indices.reshape(1, -1)
+            indices = indices.reshape(-1, 1)
 
 
         dims = [d for d in indices.shape] + [1]
@@ -115,7 +124,7 @@ batch_size = 4
 N = 10
 k = 3
 n_epochs = 200
-lr = 1e-3
+lr = 1e-5
 
 one_hot = OneHotEncoder(categories=[np.arange(N)], sparse=False)
 X = torch.from_numpy(np.arange(N))
@@ -134,38 +143,33 @@ loss_arr = []
 for i in range(n_epochs):
 
     batch_idx = np.random.choice(X, batch_size, replace=True)
-    #x_batch = one_hot.fit_transform(batch_idx.reshape(-1, 1)).astype(np.float32)
-    #x_batch = torch.tensor(x_batch, requires_grad=True)
     y_batch = y[batch_idx]
 
-    #x_c_batch = torch.tensor(X_c[batch_idx, :, :].astype(np.float32), requires_grad=True)
-    #x_s_batch = torch.tensor(X_s[batch_idx, :, :].astype(np.float32), requires_grad=True)
     x_c_batch = X_c_idx[batch_idx].astype(np.int64)
     x_s_batch = X_s_idx[batch_idx].astype(np.int64)
 
-    #y_c = y[X_c_idx[batch_idx].flatten()].reshape((batch_size, k, 1))
-    #y_s = y[X_s_idx[batch_idx].flatten()].reshape((batch_size, k, 1))
 
     y_c = y[x_c_batch.flatten()]
     y_s = y[x_s_batch.flatten()]
 
 
-    #x_batch = torch.tensor(get_input_layer(batch_idx, N), requires_grad=True)
     y_hat, y_hat_c, y_hat_s = item_encoder.forward(batch_idx, x_c_batch, x_s_batch)
 
-    loss = mrs_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+    loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+    loss_u.backward(retain_graph=True)
+
+
+    x_grad = item_encoder.get_input_grad(batch_idx)
+    x_c_grad = item_encoder.get_input_grad(x_c_batch)
+    x_s_grad = item_encoder.get_input_grad(x_s_batch)
+
+    loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
+
     loss.backward()
     optimizer.step()
 
     print(loss)
     loss_arr.append(loss)
-
-    g = item_encoder.get_input_grad(batch_idx)
-    print(g)
-    g_c = item_encoder.get_input_grad(x_c_batch)
-    print(g_c)
-    g_s = item_encoder.get_input_grad(x_s_batch)
-    print(g_s)
 
 plt.plot(range(n_epochs), loss_arr)
 plt.show()
