@@ -1,3 +1,4 @@
 {
-  "amazon_dir": "/Volumes/Porter's Data/penn-state/data-sets/reco/amazon-18"
+  "amazon_dir": "/Volumes/Porter's Data/penn-state/data-sets/reco/amazon-18",
+  "movielens_dir": "/Volumes/Porter's Data/penn-state/data-sets/reco/movie-lens"
 }
