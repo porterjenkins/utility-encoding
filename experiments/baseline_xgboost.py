@@ -6,10 +6,11 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
+from sklearn.metrics import dcg_score
 from sklearn.model_selection import train_test_split
 from generator.generator import Generator
 
-df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv",nrows=1000)
+df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=100000)
 df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
 df.drop('timestamp', axis=1, inplace=True)
 
@@ -21,7 +22,9 @@ X = Generator.get_one_hot_encodings(X)
 X_train, X_test, y_train, y_test = Generator.split_train_test_user(X, y)
 
 X_train = X_train.drop(['user_id', 'item_id'], axis=1).values
+x_test_user = X_test['user_id'].copy().values
 X_test = X_test.drop(['user_id', 'item_id'], axis=1).values
+
 
 
 xg_reg = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.3, learning_rate=0.1,
@@ -29,6 +32,21 @@ xg_reg = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.3, le
 xg_reg.fit(X_train, y_train)
 
 preds = xg_reg.predict(X_test)
-rmse = np.sqrt(mean_squared_error(y_test, preds))
 
+output = pd.DataFrame(np.concatenate([x_test_user.reshape(-1,1), preds.reshape(-1,1), y_test.values.reshape(-1,1)], \
+                                    axis=1), columns = ['user_id', 'pred', 'y_true'])
+
+output.sort_values(by=['user_id', 'pred'], inplace=True)
+output = output.groupby('user_id').head(5)
+output['rank'] = output[['user_id', 'pred']].groupby('user_id').rank(method='first').astype(float)
+output['dcg'] = (np.power(2, output['y_true']) - 1) / np.log2(output['rank'] + 1)
+
+
+
+rmse = np.sqrt(mean_squared_error(output.y_true, output.pred))
+
+print(output)
+
+avg_dcg = output.dcg.mean()
 print(rmse)
+print(avg_dcg)
