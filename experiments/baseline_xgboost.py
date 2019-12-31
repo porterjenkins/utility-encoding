@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
-from sklearn.metrics import dcg_score
-from sklearn.model_selection import train_test_split
 from generator.generator import Generator
 
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=100000)
