@@ -124,58 +124,60 @@ class Encoder1(nn.Module):
         return grad_at_idx
 
 
-
-batch_size = 32
-N = 1000
-k = 5
-n_epochs = 250
-lr = 1e-5
-
-one_hot = OneHotEncoder(categories=[np.arange(N)], sparse=False)
-X = torch.from_numpy(np.arange(N))
-y = torch.from_numpy(np.random.randint(1, 5, N))
-
-# generate complement/subsitute sets
-
-X_c, X_c_idx, X_s, X_s_idx = generate_sets(N, k)
+if __name__ == "__main__":
 
 
-item_encoder = Encoder1(n_items=N, h_dim_size=8)
-optimizer = optim.Adam(item_encoder.parameters(), lr=lr)
+    batch_size = 32
+    N = 1000
+    k = 5
+    n_epochs = 250
+    lr = 1e-5
 
-loss_arr = []
+    one_hot = OneHotEncoder(categories=[np.arange(N)], sparse=False)
+    X = torch.from_numpy(np.arange(N))
+    y = torch.from_numpy(np.random.randint(1, 5, N))
 
-for i in range(n_epochs):
+    # generate complement/subsitute sets
 
-    batch_idx = np.random.choice(X, batch_size, replace=True)
-    y_batch = y[batch_idx]
-
-    x_c_batch = X_c_idx[batch_idx].astype(np.int64)
-    x_s_batch = X_s_idx[batch_idx].astype(np.int64)
-
-
-    y_c = y[x_c_batch.flatten()]
-    y_s = y[x_s_batch.flatten()]
+    X_c, X_c_idx, X_s, X_s_idx = generate_sets(N, k)
 
 
-    y_hat, y_hat_c, y_hat_s = item_encoder.forward(batch_idx, x_c_batch, x_s_batch)
+    item_encoder = Encoder1(n_items=N, h_dim_size=8)
+    optimizer = optim.Adam(item_encoder.parameters(), lr=lr)
 
-    loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
-    loss_u.backward(retain_graph=True)
+    loss_arr = []
+
+    for i in range(n_epochs):
+
+        batch_idx = np.random.choice(X, batch_size, replace=True)
+        y_batch = y[batch_idx]
+
+        x_c_batch = X_c_idx[batch_idx].astype(np.int64)
+        x_s_batch = X_s_idx[batch_idx].astype(np.int64)
 
 
-    x_grad = item_encoder.get_input_grad(batch_idx)
-    x_c_grad = item_encoder.get_input_grad(x_c_batch)
-    x_s_grad = item_encoder.get_input_grad(x_s_batch)
+        y_c = y[x_c_batch.flatten()]
+        y_s = y[x_s_batch.flatten()]
 
-    loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
 
-    loss.backward()
-    optimizer.step()
+        y_hat, y_hat_c, y_hat_s = item_encoder.forward(batch_idx, x_c_batch, x_s_batch)
 
-    print(loss)
-    loss_arr.append(loss)
+        loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+        loss_u.backward(retain_graph=True)
 
-plt.plot(range(n_epochs), loss_arr)
-plt.show()
+
+        x_grad = item_encoder.get_input_grad(batch_idx)
+        x_c_grad = item_encoder.get_input_grad(x_c_batch)
+        x_s_grad = item_encoder.get_input_grad(x_s_batch)
+
+        loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
+
+        loss.backward()
+        optimizer.step()
+
+        print(loss)
+        loss_arr.append(loss)
+
+    plt.plot(range(n_epochs), loss_arr)
+    plt.show()
 

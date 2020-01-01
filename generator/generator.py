@@ -2,46 +2,151 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
-from utils.utils import parse, pandas_df
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
-
+import numpy as np
+from utils.preprocessing import split_train_test_user
 
 class Generator(object):
 
-    def __init__(self, X, y):
-        self.x_cols = ['user_id', 'item_id']
-        self.y_cols = ['rating']
+    def __init__(self, X, Y, batch_size, shuffle):
 
-        if not isinstance(X, pd.DataFrame):
-            self.X = pd.DataFrame(X, columns=self.x_cols)
+        assert Y.ndim > 1
+
+        self.X = X
+        self.Y = Y
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.n_samples = self.X.shape[0]
+
+
+        self.curr_idx = 0
+        self.epoch_cntr = 0
+        if self.shuffle:
+            self.idx = np.random.permutation(np.arange(self.n_samples))
         else:
-            self.X = X
-        if not isinstance(y, pd.DataFrame):
-            self.y = pd.DataFrame(y, columns=self.y_cols)
+            self.idx = np.arange(self.n_samples)
+
+
+    def shuffle_idx(self):
+        self.idx = np.random.permutation(np.arange(self.n_samples))
+
+    def reset(self):
+        self.curr_idx = 0
+        self.epoch_cntr += 1
+        if self.shuffle:
+            self.shuffle_idx()
+
+    def check(self):
+        if self.curr_idx + self.batch_size >= self.n_samples:
+            return True
         else:
-            self.y = y
+            return False
+
+
+    def update_curr_idx(self):
+        self.curr_idx += self.batch_size
+
+    def reset_epoch(self):
+        self.epoch_cntr = 0
+
+
+class SimpleBatchGenerator(Generator):
+
+    def __init__(self, X, Y, batch_size, shuffle=True):
+        super().__init__(X, Y, batch_size, shuffle)
+
+    def get_batch(self):
+        reset = self.check()
+        if reset:
+            self.reset()
+
+        batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
+        x_batch = self.X[batch_idx, :]
+        y_batch = self.Y[batch_idx, :]
+        self.update_curr_idx()
+
+        return x_batch, y_batch
+
+
+
+class CoocurrenceGenerator(Generator):
+    """
+    Class to generate minibatch samples, as well as complement and supplement sets
+        - Assume that first column of X is user_id, second column is item_id
+    """
+
+
+    def __init__(self, X, Y, batch_size, shuffle, user_item_dict, c_size, s_size):
+        super().__init__(X, Y, batch_size, shuffle)
+        self.user_item_dict = user_item_dict
+        self.c_size = c_size
+        self.s_size = s_size
+        self.n_item = X[:, 1].max()
+
+    def get_complement_set(self, x_batch):
+        X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int32)
+
+        users = x_batch[:, 0]
+
+        for i, user_id in enumerate(users):
+            n, items = self.user_item_dict[user_id]
+            idx = np.random.randint(0, n, self.c_size)
+            c_set = items[idx]
+
+            X_c[i, :] = c_set
+
+        return X_c
+
+    def get_supp_set(self, x_batch):
+        X_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.int32)
+
+        users = x_batch[:, 0]
+
+        for i, user_id in enumerate(users):
+            n, items = self.user_item_dict[user_id]
+            supp_cntr = 0
+            s_set = np.zeros(self.s_size)
+
+            while supp_cntr < self.s_size:
+                item = np.random.randint(0, self.n_item, 1)
+                if item not in items:
+                    s_set[supp_cntr] = item
+                    supp_cntr +=1
+
+
+            X_s[i, :] = s_set
+
+        return X_s
+
+
+    def get_batch(self):
+        reset = self.check()
+        if reset:
+            self.reset()
+
+        batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
+        x_batch = self.X[batch_idx, :]
+        y_batch = self.Y[batch_idx, :]
+
+        X_c = self.get_complement_set(x_batch)
+        X_s = self.get_supp_set(x_batch)
+
+        self.update_curr_idx()
+        return x_batch, y_batch, X_c, X_s
 
 
     @classmethod
-    def get_one_hot_encodings(cls, X):
+    def get_user_prod_dict(cls, df):
 
+        user_item_dict = {}
 
-        item_encodings = pd.get_dummies(X['item_id'])
-        user_encodings = pd.get_dummies(X['user_id'])
+        for user_id, user_dta in df.groupby('user_id'):
 
-        return pd.concat([X, user_encodings, item_encodings], axis=1)
+            items = user_dta['item_id'].unique()
+            n = len(items)
+            user_item_dict[user_id] = (n, items)
 
-
-    @classmethod
-    def split_train_test_user(cls, X, y, test_size=.2):
-
-        assert 'user_id' in list(X.columns)
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_size, stratify=X['user_id'])
-
-        return X_train, X_test, y_train, y_test
+        return user_item_dict
 
 
 
@@ -53,8 +158,20 @@ if __name__ == "__main__":
     df.drop('timestamp', axis=1, inplace=True)
 
     X = df[['user_id', 'item_id']]
+
+    d = CoocurrenceGenerator.get_user_prod_dict(X)
+
     y = df['rating']
 
-    X_train, X_test, y_train, y_test = Generator.split_train_test_user(X, y)
+    X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-    gen = Generator(X=X_train, y=y_train)
+    gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1,1), batch_size=8, shuffle=True,
+                               user_item_dict=d, c_size=5, s_size=5)
+
+    while gen.epoch_cntr < 10:
+
+        x_batch, y_batch, X_c, X_s = gen.get_batch()
+        print(x_batch)
+
+    print(gen.epoch_cntr)
+
