@@ -183,8 +183,8 @@ if __name__ == "__main__":
 
 
         x_grad = item_encoder.get_input_grad(x_batch)
-        x_c_grad = item_encoder.get_input_grad(x_c_batch.astype(np.int64))
-        x_s_grad = item_encoder.get_input_grad(x_s_batch.astype(np.int64))
+        x_c_grad = item_encoder.get_input_grad(x_c_batch)
+        x_s_grad = item_encoder.get_input_grad(x_s_batch)
 
         loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
 

@@ -52,6 +52,9 @@ def preprocess_user_item_df(df):
 
             item_cntr += 1
 
+        df.loc[idx, 'user_id'] = user_id_map[row.user_id]
+        df.loc[idx, 'item_id'] = item_id_map[row.item_id]
+
 
         # update item_rating dicts
 
@@ -80,7 +83,7 @@ def preprocess_user_item_df(df):
 
 
 
-    return user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
+    return df, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
 
 
 
@@ -92,3 +95,26 @@ def write_dict_output(out_dir, fname, data):
     out_path = out_dir + fname
     with open(out_path, 'w') as fp:
         json.dump(data, fp)
+
+def load_dict_output(dir, fname, keys_to_int=False):
+
+    fpath = dir + fname
+    with open(fpath, 'r') as fp:
+        data =json.load(fp)
+
+    if keys_to_int:
+        data_to_int = {}
+        for k, v in data.items():
+
+            if isinstance(v, dict):
+
+                data_to_int[int(k)] = {int(k2): v2 for k2,v2 in v.items()}
+
+            else:
+                data_to_int[int(k)] = v
+
+        return data_to_int
+
+
+    else:
+        return data

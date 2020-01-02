@@ -4,7 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
 import pandas as pd
 import numpy as np
-from utils.preprocessing import split_train_test_user, map_ids_to_idx
+from preprocessing.utils import split_train_test_user, load_dict_output
 import torch
 
 class Generator(object):
@@ -76,9 +76,10 @@ class CoocurrenceGenerator(Generator):
     """
 
 
-    def __init__(self, X, Y, batch_size, shuffle, user_item_dict, c_size, s_size, n_item=None):
+    def __init__(self, X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
         super().__init__(X, Y, batch_size, shuffle)
-        self.user_item_dict = user_item_dict
+        self.user_item_rating_map = user_item_rating_map
+        self.item_rating_map = item_rating_map
         self.c_size = c_size
         self.s_size = s_size
 
@@ -88,39 +89,51 @@ class CoocurrenceGenerator(Generator):
             self.n_item = n_item
 
     def get_complement_set(self, x_batch):
-        X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int32)
+        X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int64)
+        y_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.float32)
 
         users = x_batch[:, 0]
 
         for i, user_id in enumerate(users):
-            n, items = self.user_item_dict[user_id]
-            idx = np.random.randint(0, n, self.c_size)
-            c_set = items[idx]
+            item_ratings = self.user_item_rating_map[user_id]
+            items = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
 
-            X_c[i, :] = c_set
+            X_c[i, :] = items
 
-        return X_c
+            for j, item in enumerate(items):
+                y_c[i, j] = item_ratings[item]
+
+        return X_c, y_c
 
     def get_supp_set(self, x_batch):
-        X_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.int32)
+        X_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.int64)
+        y_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.float32)
 
         users = x_batch[:, 0]
 
         for i, user_id in enumerate(users):
-            n, items = self.user_item_dict[user_id]
+            user_items = list(self.user_item_rating_map[user_id].keys())
+
             supp_cntr = 0
-            s_set = np.zeros(self.s_size)
+            s_set = np.zeros(self.s_size, dtype=np.int64)
+            y_s_set = np.zeros(self.s_size, dtype=np.float32)
 
             while supp_cntr < self.s_size:
-                item = np.random.randint(0, self.n_item, 1)
-                if item not in items:
+                item = np.random.randint(0, self.n_item, 1)[0]
+                if item not in user_items:
                     s_set[supp_cntr] = item
+
+                    n_ratings = len(self.item_rating_map[item])
+                    ratings_idx = np.random.randint(0, n_ratings, 1)[0]
+                    y_s_set[supp_cntr] = self.item_rating_map[item][ratings_idx]
+
                     supp_cntr +=1
 
 
             X_s[i, :] = s_set
+            y_s[i, :] = y_s_set
 
-        return X_s
+        return X_s, y_s
 
 
     def get_batch(self, as_tensor=False):
@@ -132,8 +145,8 @@ class CoocurrenceGenerator(Generator):
         x_batch = self.X[batch_idx, :]
         y_batch = self.Y[batch_idx, :]
 
-        X_c = self.get_complement_set(x_batch)
-        X_s = self.get_supp_set(x_batch)
+        X_c, y_c = self.get_complement_set(x_batch)
+        X_s, y_s = self.get_supp_set(x_batch)
 
         self.update_curr_idx()
 
@@ -143,46 +156,36 @@ class CoocurrenceGenerator(Generator):
             X_c = torch.from_numpy(X_c)
             X_s = torch.from_numpy(X_s)
 
-        return x_batch, y_batch, X_c, X_s
+        return x_batch, y_batch, X_c, y_c, X_s, y_s
 
-
-    @classmethod
-    def get_user_prod_dict(cls, df):
-
-        user_item_dict = {}
-
-        for user_id, user_dta in df.groupby('user_id'):
-
-            items = user_dta['item_id'].unique()
-            n = len(items)
-            user_item_dict[user_id] = (n, items)
-
-        return user_item_dict
 
 
 
 
 if __name__ == "__main__":
 
-    df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv",nrows=1000)
-    df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
-    df.drop('timestamp', axis=1, inplace=True)
+    data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
+
+    df = pd.read_csv(data_dir + "ratings.csv")
 
     X = df[['user_id', 'item_id']]
     y = df['rating']
 
-    X, n_items, n_users = map_ids_to_idx(X)
+    user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
+    item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
+    stats = load_dict_output(data_dir, "stats.json")
 
-    d = CoocurrenceGenerator.get_user_prod_dict(X)
+
 
     X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
     gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1,1), batch_size=8, shuffle=True,
-                               user_item_dict=d, c_size=5, s_size=5, n_item=n_items)
+                               user_item_rating_map=user_item_rating_map, item_rating_map=item_rating_map, c_size=5,
+                               s_size=5, n_item=stats['n_items'])
 
     while gen.epoch_cntr < 10:
 
-        x_batch, y_batch, X_c, X_s = gen.get_batch()
+        x_batch, y_batch, X_c, y_c, X_s, y_s = gen.get_batch()
         print(x_batch)
 
     print(gen.epoch_cntr)
