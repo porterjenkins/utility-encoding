@@ -1,14 +1,17 @@
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import config.config as cfg
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
-from sklearn.preprocessing import OneHotEncoder
 import matplotlib.pyplot as plt
 from model.embedding import EmbeddingGrad
+from generator.generator import CoocurrenceGenerator
+from utils.preprocessing import split_train_test_user, map_ids_to_idx
+import pandas as pd
 
 
 def loss_mse(y_true, y_hat):
@@ -17,13 +20,13 @@ def loss_mse(y_true, y_hat):
 
     return mse
 
-def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s):
+def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c=None, y_true_s=None):
     err = y_true - y_hat.flatten()
-    err_c = y_true_c - y_hat_c.flatten()
-    err_s = y_true_s - y_hat_s.flatten()
+    #err_c = y_true_c - y_hat_c.flatten()
+    #err_s = y_true_s - y_hat_s.flatten()
 
-    err_all = torch.cat((err, err_c, err_s))
-    return torch.mean(torch.pow(err_all, 2))
+    #err_all = torch.cat((err, err_c, err_s))
+    return torch.mean(torch.pow(err, 2))
 
 def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
     
@@ -80,10 +83,10 @@ def generate_sets(N, k):
 
 
 
-class Encoder1(nn.Module):
+class UtilityEncoder(nn.Module):
 
     def __init__(self, n_items, h_dim_size):
-        super(Encoder1, self).__init__()
+        super(UtilityEncoder, self).__init__()
         self.n_items = n_items
         self.h_dim_size = h_dim_size
 
@@ -128,47 +131,60 @@ if __name__ == "__main__":
 
 
     batch_size = 32
-    N = 1000
     k = 5
+    d=32
     n_epochs = 250
-    lr = 1e-5
+    lr = 1e-4
 
-    one_hot = OneHotEncoder(categories=[np.arange(N)], sparse=False)
-    X = torch.from_numpy(np.arange(N))
-    y = torch.from_numpy(np.random.randint(1, 5, N))
+    df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=1000)
+    df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
+    df.drop('timestamp', axis=1, inplace=True)
 
-    # generate complement/subsitute sets
+    X = df[['user_id', 'item_id']]
+    y = df['rating']
 
-    X_c, X_c_idx, X_s, X_s_idx = generate_sets(N, k)
+    X, n_items, n_users = map_ids_to_idx(X)
 
 
-    item_encoder = Encoder1(n_items=N, h_dim_size=8)
+    X_train, X_test, y_train, y_test = split_train_test_user(X, y)
+
+    user_dict = CoocurrenceGenerator.get_user_prod_dict(X_train)
+
+    gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=batch_size, shuffle=True,
+                               user_item_dict=user_dict, c_size=k, s_size=k, n_item=n_items)
+
+
+
+    item_encoder = UtilityEncoder(n_items=gen.n_item, h_dim_size=d)
     optimizer = optim.Adam(item_encoder.parameters(), lr=lr)
 
     loss_arr = []
 
-    for i in range(n_epochs):
+    while gen.epoch_cntr < n_epochs:
 
-        batch_idx = np.random.choice(X, batch_size, replace=True)
-        y_batch = y[batch_idx]
+        #batch_idx = np.random.choice(X, batch_size, replace=True)
+        #y_batch = y[batch_idx]
 
-        x_c_batch = X_c_idx[batch_idx].astype(np.int64)
-        x_s_batch = X_s_idx[batch_idx].astype(np.int64)
+        #x_c_batch = X_c_idx[batch_idx].astype(np.int64)
+        #x_s_batch = X_s_idx[batch_idx].astype(np.int64)
+
+        x_batch, y_batch, x_c_batch, x_s_batch = gen.get_batch(as_tensor=False)
+        # only consider items as features
+        x_batch = x_batch[:, 1]
+
+        #y_c = y[x_c_batch.flatten()]
+        #y_s = y[x_s_batch.flatten()]
 
 
-        y_c = y[x_c_batch.flatten()]
-        y_s = y[x_s_batch.flatten()]
+        y_hat, y_hat_c, y_hat_s = item_encoder.forward(x_batch, x_c_batch, x_s_batch)
 
-
-        y_hat, y_hat_c, y_hat_s = item_encoder.forward(batch_idx, x_c_batch, x_s_batch)
-
-        loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+        loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, torch.from_numpy(y_batch))
         loss_u.backward(retain_graph=True)
 
 
-        x_grad = item_encoder.get_input_grad(batch_idx)
-        x_c_grad = item_encoder.get_input_grad(x_c_batch)
-        x_s_grad = item_encoder.get_input_grad(x_s_batch)
+        x_grad = item_encoder.get_input_grad(x_batch)
+        x_c_grad = item_encoder.get_input_grad(x_c_batch.astype(np.int64))
+        x_s_grad = item_encoder.get_input_grad(x_s_batch.astype(np.int64))
 
         loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
 

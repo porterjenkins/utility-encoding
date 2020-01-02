@@ -4,21 +4,21 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
 import pandas as pd
 import numpy as np
-from utils.preprocessing import split_train_test_user
+from utils.preprocessing import split_train_test_user, map_ids_to_idx
+import torch
 
 class Generator(object):
 
     def __init__(self, X, Y, batch_size, shuffle):
 
         assert Y.ndim > 1
+        assert X.ndim > 1
 
         self.X = X
         self.Y = Y
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.n_samples = self.X.shape[0]
-
-
         self.curr_idx = 0
         self.epoch_cntr = 0
         if self.shuffle:
@@ -76,12 +76,16 @@ class CoocurrenceGenerator(Generator):
     """
 
 
-    def __init__(self, X, Y, batch_size, shuffle, user_item_dict, c_size, s_size):
+    def __init__(self, X, Y, batch_size, shuffle, user_item_dict, c_size, s_size, n_item=None):
         super().__init__(X, Y, batch_size, shuffle)
         self.user_item_dict = user_item_dict
         self.c_size = c_size
         self.s_size = s_size
-        self.n_item = X[:, 1].max()
+
+        if n_item is None:
+            self.n_item = int(X[:, 1].max())
+        else:
+            self.n_item = n_item
 
     def get_complement_set(self, x_batch):
         X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int32)
@@ -119,7 +123,7 @@ class CoocurrenceGenerator(Generator):
         return X_s
 
 
-    def get_batch(self):
+    def get_batch(self, as_tensor=False):
         reset = self.check()
         if reset:
             self.reset()
@@ -132,6 +136,13 @@ class CoocurrenceGenerator(Generator):
         X_s = self.get_supp_set(x_batch)
 
         self.update_curr_idx()
+
+        if as_tensor:
+            x_batch = torch.from_numpy(x_batch)
+            y_batch = torch.from_numpy(y_batch)
+            X_c = torch.from_numpy(X_c)
+            X_s = torch.from_numpy(X_s)
+
         return x_batch, y_batch, X_c, X_s
 
 
@@ -158,15 +169,16 @@ if __name__ == "__main__":
     df.drop('timestamp', axis=1, inplace=True)
 
     X = df[['user_id', 'item_id']]
+    y = df['rating']
+
+    X, n_items, n_users = map_ids_to_idx(X)
 
     d = CoocurrenceGenerator.get_user_prod_dict(X)
-
-    y = df['rating']
 
     X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
     gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1,1), batch_size=8, shuffle=True,
-                               user_item_dict=d, c_size=5, s_size=5)
+                               user_item_dict=d, c_size=5, s_size=5, n_item=n_items)
 
     while gen.epoch_cntr < 10:
 

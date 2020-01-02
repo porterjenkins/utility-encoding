@@ -23,7 +23,7 @@ def map_ids_to_idx(df):
 
     user_cntr = 0
     item_cntr = 0
-    
+
 
 
     for idx, row in df.iterrows():
@@ -33,6 +33,13 @@ def map_ids_to_idx(df):
             user_cntr += 1
 
         if row.item_id not in item_map:
-            user_cntr
+            item_map[row.item_id] = item_cntr
+            item_cntr += 1
+
+
+        df.loc[idx, 'user_id'] = user_map[row.user_id]
+        df.loc[idx, 'item_id'] = item_map[row.item_id]
+
+    return df, item_cntr, user_cntr
 
 
