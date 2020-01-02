@@ -90,7 +90,7 @@ class CoocurrenceGenerator(Generator):
 
     def get_complement_set(self, x_batch):
         X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int64)
-        y_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.float32)
+        y_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.float64)
 
         users = x_batch[:, 0]
 
@@ -107,7 +107,7 @@ class CoocurrenceGenerator(Generator):
 
     def get_supp_set(self, x_batch):
         X_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.int64)
-        y_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.float32)
+        y_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.float64)
 
         users = x_batch[:, 0]
 
@@ -155,6 +155,8 @@ class CoocurrenceGenerator(Generator):
             y_batch = torch.from_numpy(y_batch)
             X_c = torch.from_numpy(X_c)
             X_s = torch.from_numpy(X_s)
+            y_c = torch.from_numpy(y_c)
+            y_s = torch.from_numpy(y_s)
 
         return x_batch, y_batch, X_c, y_c, X_s, y_s
 

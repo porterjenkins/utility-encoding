@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from model.embedding import EmbeddingGrad
 from generator.generator import CoocurrenceGenerator
-from utils.preprocessing import split_train_test_user, map_ids_to_idx
+from preprocessing.utils import split_train_test_user, load_dict_output
 import pandas as pd
 
 
@@ -20,13 +20,13 @@ def loss_mse(y_true, y_hat):
 
     return mse
 
-def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c=None, y_true_s=None):
-    err = y_true - y_hat.flatten()
-    #err_c = y_true_c - y_hat_c.flatten()
-    #err_s = y_true_s - y_hat_s.flatten()
+def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s):
+    err = y_true - y_hat
+    err_c = y_true_c - y_hat_c
+    err_s = y_true_s - y_hat_s
 
-    #err_all = torch.cat((err, err_c, err_s))
-    return torch.mean(torch.pow(err, 2))
+    err_all = torch.cat((err.flatten(), err_c.flatten(), err_s.flatten()))
+    return torch.mean(torch.pow(err_all, 2))
 
 def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
     
@@ -107,7 +107,7 @@ class UtilityEncoder(nn.Module):
         y_hat_s = self.weights(e_s)
 
 
-        return y_hat, y_hat_c, y_hat_s
+        return y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s)
 
     def get_input_grad(self, indices):
         """
@@ -120,11 +120,11 @@ class UtilityEncoder(nn.Module):
 
 
         dims = [d for d in indices.shape] + [1]
-        idx_tensor = torch.LongTensor(torch.from_numpy(indices)).reshape(dims)
+        idx_tensor = torch.LongTensor(indices).reshape(dims)
 
         grad = self.embedding.get_grad(indices)
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
-        return grad_at_idx
+        return torch.squeeze(grad_at_idx)
 
 
 if __name__ == "__main__":
@@ -136,22 +136,22 @@ if __name__ == "__main__":
     n_epochs = 250
     lr = 1e-4
 
-    df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=1000)
-    df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
-    df.drop('timestamp', axis=1, inplace=True)
+    data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
+
+    df = pd.read_csv(data_dir + "ratings.csv")
 
     X = df[['user_id', 'item_id']]
     y = df['rating']
 
-    X, n_items, n_users = map_ids_to_idx(X)
-
+    user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
+    item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
+    stats = load_dict_output(data_dir, "stats.json")
 
     X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-    user_dict = CoocurrenceGenerator.get_user_prod_dict(X_train)
-
-    gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=batch_size, shuffle=True,
-                               user_item_dict=user_dict, c_size=k, s_size=k, n_item=n_items)
+    gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=8, shuffle=True,
+                               user_item_rating_map=user_item_rating_map, item_rating_map=item_rating_map, c_size=5,
+                               s_size=5, n_item=stats['n_items'])
 
 
 
@@ -168,17 +168,14 @@ if __name__ == "__main__":
         #x_c_batch = X_c_idx[batch_idx].astype(np.int64)
         #x_s_batch = X_s_idx[batch_idx].astype(np.int64)
 
-        x_batch, y_batch, x_c_batch, x_s_batch = gen.get_batch(as_tensor=False)
+        x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
         # only consider items as features
         x_batch = x_batch[:, 1]
 
-        #y_c = y[x_c_batch.flatten()]
-        #y_s = y[x_s_batch.flatten()]
-
-
         y_hat, y_hat_c, y_hat_s = item_encoder.forward(x_batch, x_c_batch, x_s_batch)
 
-        loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, torch.from_numpy(y_batch))
+        # y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s
+        loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
         loss_u.backward(retain_graph=True)
 
 
@@ -186,7 +183,7 @@ if __name__ == "__main__":
         x_c_grad = item_encoder.get_input_grad(x_c_batch)
         x_s_grad = item_encoder.get_input_grad(x_s_batch)
 
-        loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
+        loss = mrs_loss(loss_u, x_grad.reshape(-1,1), x_c_grad, x_s_grad)
 
         loss.backward()
         optimizer.step()
