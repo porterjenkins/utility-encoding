@@ -3,13 +3,16 @@ from sklearn.model_selection import train_test_split
 import pickle
 import json
 import os
+from sklearn.preprocessing import OneHotEncoder
+import pandas as pd
 
-def get_one_hot_encodings(X):
-    item_encodings = pd.get_dummies(X['item_id'])
-    user_encodings = pd.get_dummies(X['user_id'])
+def get_one_hot_encodings(X, sparse=False):
+    encoder = OneHotEncoder(sparse=sparse)
+    one_hot = encoder.fit_transform(X)
+    cols = ['oh_{}'.format(x) for x in range(one_hot.shape[1])]
+    one_hot = pd.DataFrame(one_hot, columns=cols)
 
-    return pd.concat([X, user_encodings, item_encodings], axis=1)
-
+    return pd.concat([X, one_hot], axis=1)
 
 
 def split_train_test_user(X, y, test_size=.2):

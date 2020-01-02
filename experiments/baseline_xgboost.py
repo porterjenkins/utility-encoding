@@ -7,22 +7,31 @@ import pandas as pd
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
 from generator.generator import Generator
-from utils.preprocessing import split_train_test_user, get_one_hot_encodings
+from preprocessing.utils import split_train_test_user, get_one_hot_encodings
+from model.utils import load_embedding, embedding_to_df
 
-df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=1000)
-df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
-df.drop('timestamp', axis=1, inplace=True)
 
-X = df[['user_id', 'item_id']]
+embedding = embedding_to_df(load_embedding(fname=cfg.vals['model_dir']+'/embedding.txt'))
+
+df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
+
+#X = df[['user_id', 'item_id']]
+X = df[['user_id']]
 y = df['rating']
 
 X = get_one_hot_encodings(X)
 
+X['item_id'] = df['item_id']
+
+X = pd.merge(X, embedding, left_on='item_id', right_on='id', how='left')
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-X_train = X_train.drop(['user_id', 'item_id'], axis=1).values
+#X_train = X_train.drop(['user_id', 'item_id'], axis=1).values
+X_train = X_train.drop(['user_id', 'item_id', 'id'], axis=1).values
+
 x_test_user = X_test['user_id'].copy().values
-X_test = X_test.drop(['user_id', 'item_id'], axis=1).values
+#X_test = X_test.drop(['user_id', 'item_id'], axis=1).values
+X_test = X_test.drop(['user_id', 'item_id', 'id'], axis=1).values
 
 
 
