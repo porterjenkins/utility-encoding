@@ -138,8 +138,9 @@ if __name__ == "__main__":
     batch_size = 32
     k = 5
     d = 32
-    n_epochs = 2
-    lr = 1e-4
+    n_epochs = 5
+    lr = 1e-3
+    loss_step = 20
 
     data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 
@@ -165,21 +166,18 @@ if __name__ == "__main__":
 
     loss_arr = []
 
+    iter = 0
+    cum_loss = 0
     while gen.epoch_cntr < n_epochs:
 
-        #batch_idx = np.random.choice(X, batch_size, replace=True)
-        #y_batch = y[batch_idx]
-
-        #x_c_batch = X_c_idx[batch_idx].astype(np.int64)
-        #x_s_batch = X_s_idx[batch_idx].astype(np.int64)
 
         x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
+
         # only consider items as features
         x_batch = x_batch[:, 1]
 
         y_hat, y_hat_c, y_hat_s = item_encoder.forward(x_batch, x_c_batch, x_s_batch)
 
-        # y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s
         loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
         loss_u.backward(retain_graph=True)
 
@@ -189,13 +187,24 @@ if __name__ == "__main__":
         x_s_grad = item_encoder.get_input_grad(x_s_batch)
 
         loss = mrs_loss(loss_u, x_grad.reshape(-1,1), x_c_grad, x_s_grad)
-
+        cum_loss += loss
         loss.backward()
         optimizer.step()
 
-        print(loss)
-        loss_arr.append(loss)
+        if iter % loss_step == 0:
+            if iter == 0:
+                avg_loss = cum_loss
+            else:
+                avg_loss = cum_loss / loss_step
+            print("iteration: {} - loss: {}".format(iter, avg_loss))
+            cum_loss = 0
+
+            loss_arr.append(avg_loss)
+
+        iter += 1
 
     plt.plot(range(n_epochs), loss_arr)
     plt.show()
+
+    write_embeddings(item_encoder.get_embedding_mtx(), stats['n_items'], fname=cfg.vals['model_dir'] + '/embedding.txt')
 
