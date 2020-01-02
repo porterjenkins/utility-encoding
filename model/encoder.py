@@ -12,6 +12,7 @@ from model.embedding import EmbeddingGrad
 from generator.generator import CoocurrenceGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 import pandas as pd
+from model.utils import write_embeddings
 
 
 def loss_mse(y_true, y_hat):
@@ -109,6 +110,10 @@ class UtilityEncoder(nn.Module):
 
         return y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s)
 
+    def get_embedding_mtx(self):
+
+        return np.transpose(item_encoder.embedding.weights.weight.data.numpy())
+
     def get_input_grad(self, indices):
         """
         Get gradients with respect to inputs
@@ -132,8 +137,8 @@ if __name__ == "__main__":
 
     batch_size = 32
     k = 5
-    d=32
-    n_epochs = 250
+    d = 32
+    n_epochs = 2
     lr = 1e-4
 
     data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
