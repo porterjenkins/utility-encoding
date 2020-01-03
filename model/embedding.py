@@ -4,15 +4,20 @@ import numpy as np
 
 class EmbeddingGrad(nn.Module):
 
-    def __init__(self, num_embedding, embedding_dim):
+    def __init__(self, num_embedding, embedding_dim, init_embed=None):
         super(EmbeddingGrad, self).__init__()
         self.num_embedding = num_embedding
         self.embedding_dim = embedding_dim
 
         self.input = torch.eye(num_embedding, requires_grad=True)
-
         self.weights = nn.Linear(num_embedding, embedding_dim)
 
+        if init_embed is not None:
+            self.weights.weight = torch.nn.Parameter(init_embed)
+
+
+    def init_embed(self):
+        pass
 
     def _collect(self, indices):
         if indices.ndim == 1:
@@ -51,7 +56,10 @@ class EmbeddingGrad(nn.Module):
 
 if __name__ == "__main__":
 
-    E = EmbeddingGrad(5, 8)
+    init_embed = np.ones((5,8))
+
+    init_tensor = torch.from_numpy(init_embed)
+    E = EmbeddingGrad(5, 8, init_embed=init_tensor)
     idx = np.array([2, 2, 0])
     e = E(idx)
 
