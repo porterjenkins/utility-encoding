@@ -56,7 +56,7 @@ class SimpleBatchGenerator(Generator):
     def __init__(self, X, Y, batch_size, shuffle=True):
         super().__init__(X, Y, batch_size, shuffle)
 
-    def get_batch(self):
+    def get_batch(self, as_tensor):
         reset = self.check()
         if reset:
             self.reset()
@@ -65,6 +65,10 @@ class SimpleBatchGenerator(Generator):
         x_batch = self.X[batch_idx, :]
         y_batch = self.Y[batch_idx, :]
         self.update_curr_idx()
+
+        if as_tensor:
+            x_batch = torch.from_numpy(x_batch)
+            y_batch = torch.from_numpy(y_batch)
 
         return x_batch, y_batch
 

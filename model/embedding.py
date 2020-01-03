@@ -14,7 +14,7 @@ class EmbeddingGrad(nn.Module):
         self.weights = nn.Linear(num_embedding, embedding_dim)
 
 
-    def forward(self, indices):
+    def _collect(self, indices):
         if indices.ndim == 1:
             x = self.input[indices]
         elif indices.ndim == 2:
@@ -22,6 +22,11 @@ class EmbeddingGrad(nn.Module):
             x = torch.zeros((dims[0], dims[1], self.num_embedding))
             for i, row in enumerate(indices):
                 x[i] = self.input[row]
+        return x
+
+
+    def forward(self, indices):
+        x = self._collect(indices)
         e = self.weights(x)
         return e
 
