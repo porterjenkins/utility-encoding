@@ -82,8 +82,6 @@ def generate_sets(N, k):
 
 
 
-
-
 class UtilityEncoder(nn.Module):
 
     def __init__(self, n_items, h_dim_size):
