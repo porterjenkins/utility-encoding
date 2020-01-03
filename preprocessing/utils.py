@@ -8,17 +8,21 @@ import pandas as pd
 
 def get_one_hot_encodings(X, sparse=False):
     encoder = OneHotEncoder(sparse=sparse)
-    one_hot = encoder.fit_transform(X)
+    if X.values.ndim == 1:
+        one_hot = encoder.fit_transform(X.values.reshape(-1, 1))
+    else:
+        one_hot = encoder.fit_transform(X)
     cols = ['oh_{}'.format(x) for x in range(one_hot.shape[1])]
     one_hot = pd.DataFrame(one_hot, columns=cols)
 
     return pd.concat([X, one_hot], axis=1)
 
 
-def split_train_test_user(X, y, test_size=.2):
+def split_train_test_user(X, y, test_size=.2, random_seed=None):
     assert 'user_id' in list(X.columns)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X['user_id'])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X['user_id'],
+                                                        random_state=random_seed)
 
     return X_train, X_test, y_train, y_test
 

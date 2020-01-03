@@ -138,10 +138,10 @@ if __name__ == "__main__":
     batch_size = 32
     k = 5
     d = 32
-    n_epochs = 5
+    n_epochs = 10
     lr = 1e-3
     loss_step = 20
-    eps = .1
+    eps = .01
 
     data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 
@@ -206,6 +206,7 @@ if __name__ == "__main__":
 
             if abs(prev_loss - loss) < eps:
                 print('early stopping criterion met. Finishing training')
+                print("{} --> {}".format(prev_loss, loss))
                 break
             else:
                 prev_loss = loss
@@ -213,8 +214,9 @@ if __name__ == "__main__":
 
         iter += 1
 
-    plt.plot(range(n_epochs), loss_arr)
+    write_embeddings(item_encoder.get_embedding_mtx(), stats['n_items'], fname=cfg.vals['model_dir'] + '/embedding.txt')
+
+    plt.plot(np.arange(len(loss_arr)), np.log(loss_arr))
     plt.savefig("learning_curve.pdf")
 
-    write_embeddings(item_encoder.get_embedding_mtx(), stats['n_items'], fname=cfg.vals['model_dir'] + '/embedding.txt')
 
