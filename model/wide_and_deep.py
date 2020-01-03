@@ -12,14 +12,8 @@ from model.embedding import EmbeddingGrad
 from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 import pandas as pd
-from model.utils import write_embeddings
+from model._loss import loss_mse
 
-
-def loss_mse(y_true, y_hat):
-    err = y_true - y_hat
-    mse = torch.mean(torch.pow(err, 2))
-
-    return mse
 
 class WideAndDeep(nn.Module):
 
@@ -39,8 +33,8 @@ class WideAndDeep(nn.Module):
 
     def _forward_set(self, x):
         h = self.embedding(x)
-        h = self.fc_1(h)
-        h = self.fc_2(h)
+        h = F.relu(self.fc_1(h))
+        h = F.relu(self.fc_2(h))
 
         wide = self.embedding._collect(x)
         h = torch.cat([h, wide], dim=1)
