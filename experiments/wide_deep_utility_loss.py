@@ -15,10 +15,10 @@ from sklearn.metrics import mean_squared_error
 batch_size = 32
 k = 5
 h_dim = 256
-n_epochs = 1
+n_epochs = 5
 lr = 1e-5
-loss_step = 20
-eps = .1
+loss_step = 50
+eps = 0.0
 
 
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
@@ -68,7 +68,7 @@ while gen.epoch_cntr < n_epochs:
     x_c_grad = wide_deep.get_input_grad(x_c_batch)
     x_s_grad = wide_deep.get_input_grad(x_s_batch)
 
-    loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad)
+    loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
     cum_loss += loss
     loss.backward()
     optimizer.step()

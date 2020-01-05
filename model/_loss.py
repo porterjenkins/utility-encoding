@@ -26,7 +26,7 @@ def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
 
     mrs_loss = torch.mean(c_norm - s_norm)
 
-    loss = mrs_loss + lmbda * utility_loss
+    loss = lmbda*mrs_loss + utility_loss
 
     return loss
 
