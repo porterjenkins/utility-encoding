@@ -59,9 +59,6 @@ def preprocess_user_item_df(df):
 
             item_cntr += 1
 
-        df.loc[idx, 'user_id'] = user_id_map[row.user_id]
-        df.loc[idx, 'item_id'] = item_id_map[row.item_id]
-
 
         # update item_rating dicts
 
@@ -78,6 +75,9 @@ def preprocess_user_item_df(df):
 
 
         user_item_rating_map[user_id_map[row.user_id]][item_id_map[row.item_id]] = row.rating
+
+        df.loc[idx, 'user_id'] = user_id_map[row.user_id]
+        df.loc[idx, 'item_id'] = item_id_map[row.item_id]
 
         row_cntr += 1
 
