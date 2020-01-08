@@ -8,11 +8,31 @@ import pandas as pd
 
 RANDOM_SEED = 1990
 N_USERS = 5
-N = 25
+N = 10
 K = 3
 
-weights = np.transpose(np.random.multivariate_normal(np.zeros(N), np.eye(N), 1))
-w_normed = weights / np.sum(weights)
+#weights = np.transpose(np.random.multivariate_normal(np.zeros(N), np.eye(N), 1)).flatten()
+weights = np.random.uniform(0, 10, N)
+weights = weights / np.sum(weights)
+
+def get_analytical_mrs(w1, w2):
+
+    return w1 + w2
+
+def mrs_mat(x, w):
+    n = x.shape[0]
+    mrs_mat = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(n):
+
+
+            mrs_mat[i, j] = get_analytical_mrs(w1=w[i], w2=w[j])
+
+    return mrs_mat
+
+
+
 
 
 def logit(x):
@@ -20,12 +40,12 @@ def logit(x):
 
 
 def cobb_douglas(x, w):
-    log_u = np.dot(x, w)
-    prob = logit(log_u)
-    if prob <= .5:
-        return 1.0
-    else:
-        return 0.0
+    eps = 1e-4
+    log_x = np.log(x + eps)
+    log_u = np.dot(log_x, w) + np.random.normal(0, 1, 1)[0]
+    #u = np.exp(log_u)
+
+    return log_u
 
 
 
@@ -43,7 +63,7 @@ def gen_dataset(N, size, users):
     n_samples = users*size
 
     X = np.zeros((n_samples, 2), dtype=np.int32)
-    y = np.zeros((n_samples, 1), dtype=np.int32)
+    y = np.zeros((n_samples, 1), dtype=np.float32)
 
     cntr = 0
     for i in range(users):
@@ -65,8 +85,11 @@ def gen_dataset(N, size, users):
 
 X, y = gen_dataset(N, 1000, N_USERS)
 
+MRS = mrs_mat(x=np.arange(N), w=weights)
+
 df = pd.DataFrame(np.concatenate([X, y], axis=1), columns=['user_id', 'item_id', 'rating'])
-
-
 df, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats = preprocess_user_item_df(df)
+
+
+print(df)
 
