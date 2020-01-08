@@ -70,6 +70,7 @@ def logit(x):
 
 
 def cobb_douglas(x, w):
+    # TODO: Think more about this. This assumes that we are already at one. What's the utility at 2?
     eps = 1.0
     log_x = np.log(x + eps)
     log_u = np.dot(log_x, w) + np.random.normal(0, 1, 1)[0]
