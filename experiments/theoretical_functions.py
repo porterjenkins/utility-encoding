@@ -14,6 +14,7 @@ RANDOM_SEED = 1990
 N_USERS = 1000
 N = 10
 
+np.random.seed(RANDOM_SEED)
 
 #weights = np.transpose(np.random.multivariate_normal(np.zeros(N), np.eye(N), 1)).flatten()
 weights = np.random.uniform(0, 10, N)
@@ -35,7 +36,8 @@ def mrs_error(M1, M2):
 
 def get_analytical_mrs(w1, w2):
 
-    return w1 + w2
+    #return w1 + w2
+    return -w1/w2
 
 def mrs_mat(x, w):
     n = x.shape[0]
@@ -68,12 +70,12 @@ def logit(x):
 
 
 def cobb_douglas(x, w):
-    eps = 1e-4
+    eps = 1.0
     log_x = np.log(x + eps)
     log_u = np.dot(log_x, w) + np.random.normal(0, 1, 1)[0]
-    #u = np.exp(log_u)
+    u = np.exp(log_u)
 
-    return log_u
+    return u
 
 
 
@@ -132,7 +134,7 @@ X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=1990)
 batch_size = 32
 k = 5
 h_dim = 256
-n_epochs = 5
+n_epochs = 10
 lr = 5e-5
 loss_step = 50
 eps = 0.05
