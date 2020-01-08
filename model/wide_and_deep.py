@@ -12,7 +12,10 @@ from model.embedding import EmbeddingGrad
 from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 import pandas as pd
-from model._loss import loss_mse
+from model._loss import loss_mse, utility_loss, mrs_loss
+
+
+
 
 class WideAndDeepPretrained(nn.Module):
 
@@ -77,6 +80,14 @@ class WideAndDeepPretrained(nn.Module):
 
             return y_hat
 
+
+    def fit(self, X_train, y_train, batch_size, k, lr, n_epochs, loss_step, eps):
+        pass
+
+
+    def predict(self, X_test):
+        pass
+
 class WideAndDeep(nn.Module):
 
     def __init__(self, n_items, h_dim_size, fc1=64, fc2=32):
@@ -89,9 +100,8 @@ class WideAndDeep(nn.Module):
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
 
-
-
         self.output_layer = nn.Linear(n_items + fc2, 1)
+
 
     def get_input_grad(self, indices):
         """
@@ -138,6 +148,109 @@ class WideAndDeep(nn.Module):
 
             return y_hat
 
+    def fit(self, X_train, y_train, batch_size, lr, n_epochs, loss_step, eps):
+
+        optimizer = optim.Adam(self.parameters(), lr=lr)
+
+        gen = SimpleBatchGenerator(X_train.values, y_train.values.reshape(-1, 1), batch_size=batch_size)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        while gen.epoch_cntr < n_epochs:
+
+            x_batch, y_batch = gen.get_batch(as_tensor=True)
+            # only consider items as features
+            x_batch = x_batch[:, 1]
+
+            y_hat = self.forward(x_batch)
+            loss = loss_mse(y_true=y_batch, y_hat=y_hat)
+            cum_loss += loss
+            loss.backward()
+            optimizer.step()
+
+            if iter % loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / loss_step
+                print("iteration: {} - loss: {}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{} --> {}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            iter += 1
+
+
+    def fit_utility_loss(self, X_train, y_train, batch_size, lr, n_epochs, loss_step, eps, user_item_rating_map, item_rating_map, k, n_items):
+
+        gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=batch_size, shuffle=True,
+                                   user_item_rating_map=user_item_rating_map, item_rating_map=item_rating_map, c_size=5,
+                                   s_size=k, n_item=n_items)
+
+
+
+        optimizer = optim.Adam(self.parameters(), lr=lr)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        while gen.epoch_cntr < n_epochs:
+
+            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
+
+            # only consider items as features
+            x_batch = x_batch[:, 1]
+
+            y_hat, y_hat_c, y_hat_s = self.forward(x_batch, x_c_batch, x_s_batch)
+
+            loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+            loss_u.backward(retain_graph=True)
+
+            x_grad = self.get_input_grad(x_batch)
+            x_c_grad = self.get_input_grad(x_c_batch)
+            x_s_grad = self.get_input_grad(x_s_batch)
+
+            loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
+            cum_loss += loss
+            loss.backward()
+            optimizer.step()
+
+            if iter % loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / loss_step
+                print("iteration: {} - loss: {}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{} --> {}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            iter += 1
+
+    def predict(self, X_test):
+        y_hat = self.forward(X_test)
+        return y_hat
 
 
 
@@ -164,7 +277,12 @@ if __name__ == "__main__":
 
 
     wide_deep = WideAndDeep(stats['n_items'], h_dim_size=246, fc1=64, fc2=32)
-    optimizer = optim.Adam(wide_deep.parameters(), lr=lr)
+    wide_deep.fit(X_train, y_train, batch_size, lr, n_epochs, loss_step, eps)
+    y_hat = wide_deep.predict(X_test.values[:, 1])
+    rmse = np.sqrt(np.mean(np.power(y_test.values - y_hat.flatten().detach().numpy(), 2)))
+    print(rmse)
+
+    """optimizer = optim.Adam(wide_deep.parameters(), lr=lr)
 
     gen = SimpleBatchGenerator(X_train.values, y_train.values.reshape(-1,1), batch_size=batch_size)
 
@@ -211,6 +329,6 @@ if __name__ == "__main__":
 
     y_hat = wide_deep.forward(X_test.values[:, 1])
     rmse = np.sqrt(np.mean(np.power(y_test.values - y_hat.flatten().detach().numpy(), 2)))
-    print(rmse)
+    print(rmse)"""
 
 
