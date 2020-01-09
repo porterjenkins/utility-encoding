@@ -15,7 +15,7 @@ from sklearn.metrics import mean_squared_error
 batch_size = 32
 k = 5
 h_dim = 256
-n_epochs = 5
+n_epochs = 1
 lr = 1e-5
 loss_step = 50
 eps = 0.0
@@ -42,7 +42,6 @@ gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), ba
 
 
 wide_deep = WideAndDeep(stats['n_items'], h_dim_size=256, fc1=64, fc2=32)
-
 
 optimizer = optim.Adam(wide_deep.parameters(), lr=lr)
 
