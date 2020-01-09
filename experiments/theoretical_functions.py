@@ -12,7 +12,8 @@ from sklearn.metrics import mean_squared_error
 
 RANDOM_SEED = 1990
 N_USERS = 1000
-N = 10
+N = 25
+N_SIM = 5
 
 np.random.seed(RANDOM_SEED)
 
@@ -130,49 +131,66 @@ y = df['rating']
 X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=1990)
 
 
+
+
 ### Train Models
 
 batch_size = 32
 k = 5
 h_dim = 256
-n_epochs = 10
+n_epochs = 20
 lr = 5e-5
 loss_step = 50
 eps = 0.05
 
+output = {"linear": [],
+          "vanilla": [],
+          "utility": []}
 
-# Train Linear Regression
-enc = OneHotEncoder(sparse=False)
-X_train_sparse = enc.fit_transform(X=X_train['item_id'].values.reshape(-1,1))
+for iter in range(N_SIM):
 
-linear = LinearRegression(fit_intercept=True)
-linear.fit(X_train_sparse, y_train)
+    # Train Linear Regression
+    enc = OneHotEncoder(sparse=False)
+    X_train_sparse = enc.fit_transform(X=X_train['item_id'].values.reshape(-1,1))
+
+    linear = LinearRegression(fit_intercept=True)
+    linear.fit(X_train_sparse, y_train)
 
 
 
-grad_linear = linear.coef_
-mrs_linear = compute_pariwise_mrs(grad_linear)
-l2_linear = mrs_error(MRS, mrs_linear)
-print(l2_linear)
+    grad_linear = linear.coef_
+    mrs_linear = compute_pariwise_mrs(grad_linear)
+    l2_linear = mrs_error(MRS, mrs_linear)
+    output['linear'].append(l2_linear)
 
-# Train Vanilla Wide&Deep
-wide_deep = WideAndDeep(stats['n_items'],  h_dim_size=246, fc1=64, fc2=32)
 
-wide_deep.fit(X_train, y_train, batch_size, lr, n_epochs, loss_step, eps)
+    # Train Vanilla Wide&Deep
+    wide_deep = WideAndDeep(stats['n_items'],  h_dim_size=246, fc1=64, fc2=32)
 
-grad_vanilla = wide_deep.get_input_grad(np.arange(N))
-mrs_vanilla = compute_pariwise_mrs(grad_vanilla.data.numpy())
-l2_vanilla = mrs_error(MRS, mrs_vanilla)
+    wide_deep.fit(X_train, y_train, batch_size, lr, n_epochs, loss_step, eps)
 
-print(l2_vanilla)
+    grad_vanilla = wide_deep.get_input_grad(np.arange(N))
+    mrs_vanilla = compute_pariwise_mrs(grad_vanilla.data.numpy())
+    l2_vanilla = mrs_error(MRS, mrs_vanilla)
+    output['vanilla'].append(l2_vanilla)
 
-# Train Neural Utility Function
-wide_deep_utility = WideAndDeep(stats['n_items'], h_dim_size=246, fc1=64, fc2=32)
-wide_deep_utility.fit_utility_loss(X_train, y_train, batch_size, lr, n_epochs, loss_step, eps, user_item_rating_map, \
-                            item_rating_map, k, stats['n_items'])
 
-grad_utility = wide_deep_utility.get_input_grad(np.arange(N))
-mrs_utility = compute_pariwise_mrs(grad_utility.data.numpy())
-l2_utility = mrs_error(MRS, mrs_utility)
 
-print(l2_utility)
+    # Train Neural Utility Function
+    wide_deep_utility = WideAndDeep(stats['n_items'], h_dim_size=246, fc1=64, fc2=32)
+    wide_deep_utility.fit_utility_loss(X_train, y_train, batch_size, lr, n_epochs, loss_step, eps, user_item_rating_map, \
+                                item_rating_map, k, stats['n_items'])
+
+    grad_utility = wide_deep_utility.get_input_grad(np.arange(N))
+    mrs_utility = compute_pariwise_mrs(grad_utility.data.numpy())
+    l2_utility = mrs_error(MRS, mrs_utility)
+    output['utility'].append(l2_utility)
+
+
+
+for k, v in output.items():
+
+    print(k)
+    print(v)
+    print("mean: {:.4f}".format(np.mean(output[k])))
+    print("std: {:.4f}".format(np.std(output[k])))
