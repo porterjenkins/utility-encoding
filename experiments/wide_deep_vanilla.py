@@ -18,8 +18,8 @@ import torch
 batch_size = 32
 k = 5
 h_dim = 256
-n_epochs = 25
-lr = 1e-5
+n_epochs = 10
+lr = 1e-4
 loss_step = 50
 eps = 0
 
@@ -61,6 +61,9 @@ while gen.epoch_cntr < n_epochs:
     y_hat = wide_deep.forward(x_batch)
     loss = loss_mse(y_true=y_batch, y_hat=y_hat)
     cum_loss += loss
+
+
+    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
