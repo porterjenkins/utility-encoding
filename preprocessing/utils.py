@@ -19,9 +19,9 @@ def get_one_hot_encodings(X, sparse=False):
 
 
 def split_train_test_user(X, y, test_size=.2, random_seed=None):
-    assert 'user_id' in list(X.columns)
+    #assert 'user_id' in list(X.columns)
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X['user_id'],
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X[:, 0],
                                                         random_state=random_seed)
 
     return X_train, X_test, y_train, y_test
@@ -40,8 +40,8 @@ def preprocess_user_item_df(df):
     id_user_map = {}
     id_item_map = {}
 
-    user_cntr = 0
-    item_cntr = 0
+    user_cntr = 1
+    item_cntr = 1
 
     row_cntr = 0
     for idx, row in df.iterrows():
