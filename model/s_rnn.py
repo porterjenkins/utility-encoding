@@ -12,6 +12,7 @@ from model._loss import loss_mse
 from preprocessing.utils import split_train_test_user, load_dict_output
 from preprocessing.interactions import Interactions
 import numpy as np
+from model.embedding import EmbeddingGrad
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -95,27 +96,29 @@ class SRNNTrainer(object):
 
 class SRNN(nn.Module):
 
-    def __init__(self, n_items, h_dim_size, n_layers=3, use_cuda=False, batch_size=32):
+    def __init__(self, n_items, h_dim_size, gru_hidden_size, n_layers=3, use_cuda=False, batch_size=32):
         super(SRNN, self).__init__()
         self.batch_size = batch_size
         self.n_items = n_items
         self.h_dim_size = h_dim_size
+        self.gru_hidden_size = gru_hidden_size
         self.n_layers = n_layers
         self.device = torch.device('cuda' if use_cuda else 'cpu')
-        self.gru = nn.GRU(self.n_items, self.h_dim_size, self.n_layers)
+        self.gru = nn.GRU(input_size=self.h_dim_size, hidden_size=self.h_dim_size, num_layers=self.n_layers)
         self.activation = nn.Tanh()
-        self.out = nn.Linear(h_dim_size, n_items)
-        self.one_hot_embedding = self.init_onehot_embedding()
+        self.out = nn.Linear(h_dim_size, 1)
+        self.embedding = EmbeddingGrad(n_items, h_dim_size)
 
         # self = self.to(self.device)
 
     def forward(self, input, hidden):
-        embedded = self.one_hot(input)
+        embedded = self.embedding(input)
         embedded = embedded.unsqueeze(0)
-        o, h = self.gru(embedded, hidden)
-        o = o.view(-1, o.size(-1))
-        activation = self.activation(self.out(o))
-        return activation, h
+        o, h = self.gru(torch.transpose(torch.squeeze(embedded),0, 1), hidden)
+        #o = o.view(-1, o.size(-1))
+
+        y_hat = torch.squeeze(self.activation(self.out(torch.transpose(o, 0, 1))))
+        return y_hat, h
 
     def init_hidden(self):
         return torch.zeros(self.n_layers, self.batch_size, self.h_dim_size).to(self.device)
@@ -139,7 +142,7 @@ if __name__ == "__main__":
         'h_dim': 256,
         'n_epochs': 100,
         'lr': 1e-5,
-        'loss_step': 50,
+        'loss_step': 10,
         'eps': 0
     }
 
@@ -157,8 +160,10 @@ if __name__ == "__main__":
 
     sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=3, min_sequence_length=3)
 
+
+
     X = np.concatenate((sequence_users.reshape(-1,1), sequences), axis=1)
 
-    srnn = SRNN(stats['n_items'], h_dim_size=246)
+    srnn = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
     trainer = SRNNTrainer(srnn, [X, y], params)
     trainer.train()

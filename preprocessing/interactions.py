@@ -230,10 +230,10 @@ class Interactions(object):
         sequences = np.zeros((num_subsequences, max_sequence_length),
                              dtype=np.int32)
         sequence_users = np.empty(num_subsequences,
-                                  dtype=np.int32)
+                                  dtype=np.int64)
 
         sequences_ratings = np.zeros((num_subsequences, max_sequence_length),
-                             dtype=np.float32)
+                             dtype=np.float64)
 
         # Do Item Sequences
         for i, (uid,
