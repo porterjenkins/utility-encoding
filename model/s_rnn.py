@@ -10,8 +10,11 @@ import config.config as cfg
 from generator.generator import SimpleBatchGenerator
 from model._loss import loss_mse
 from preprocessing.utils import split_train_test_user, load_dict_output
+from preprocessing.interactions import Interactions
+import numpy as np
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 
 class SRNNTrainer(object):
@@ -75,14 +78,14 @@ class SRNNTrainer(object):
         # print(rmse)
 
     def generator(self, X_train, y_train):
-        return SimpleBatchGenerator(X_train.values, y_train.values.reshape(-1, 1), batch_size=self.batch_size)
+        return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
 
     def do_epoch(self, gen):
 
         h = self.srnn.init_hidden()
         x_batch, y_batch = gen.get_batch(as_tensor=True)
         # only consider items as features
-        x_batch = x_batch[:, 1]
+        x_batch = x_batch[:, 1:]
         self.optimizer.zero_grad()
 
         y_hat, h = self.srnn.forward(x_batch, h)
@@ -141,12 +144,20 @@ if __name__ == "__main__":
     }
 
     df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
-
     data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
     stats = load_dict_output(data_dir, "stats.json")
 
-    X = df[['user_id', 'item_id']]
-    y = df['rating']
+
+    interactions = Interactions(user_ids=df['user_id'].values,
+                                item_ids=df['item_id'].values,
+                                ratings=df['rating'].values,
+                                timestamps=df['timestamp'].values,
+                                num_users=stats['n_users'],
+                                num_items=stats['n_items'])
+
+    sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=3, min_sequence_length=3)
+
+    X = np.concatenate((sequence_users.reshape(-1,1), sequences), axis=1)
 
     srnn = SRNN(stats['n_items'], h_dim_size=246)
     trainer = SRNNTrainer(srnn, [X, y], params)
