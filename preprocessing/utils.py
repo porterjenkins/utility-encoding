@@ -20,7 +20,7 @@ def get_one_hot_encodings(X, sparse=False):
 
 def split_train_test_user(X, y, test_size=.2, random_seed=None):
     #assert 'user_id' in list(X.columns)
-
+    # TODO: Back this function backwards compatible with other models
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X[:, 0],
                                                         random_state=random_seed)
 

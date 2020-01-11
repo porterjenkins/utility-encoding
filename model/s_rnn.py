@@ -1,6 +1,6 @@
 import os
 import sys
-
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ from preprocessing.interactions import Interactions
 import numpy as np
 from model.embedding import EmbeddingGrad
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 
 
 
@@ -90,7 +90,7 @@ class SRNNTrainer(object):
         self.optimizer.zero_grad()
 
         y_hat, h = self.srnn.forward(x_batch, h)
-        loss = loss_mse(y_true=y_batch, y_hat=y_hat)
+        loss = loss_mse(y_true=np.transpose(y_batch), y_hat=y_hat)
         return loss
 
 
@@ -117,7 +117,7 @@ class SRNN(nn.Module):
         o, h = self.gru(torch.transpose(torch.squeeze(embedded),0, 1), hidden)
         #o = o.view(-1, o.size(-1))
 
-        y_hat = torch.squeeze(self.activation(self.out(torch.transpose(o, 0, 1))))
+        y_hat = torch.squeeze(self.activation(self.out(o)))
         return y_hat, h
 
     def init_hidden(self):
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         'k': 5,
         'h_dim': 256,
         'n_epochs': 100,
-        'lr': 1e-5,
+        'lr': 1e-3,
         'loss_step': 10,
         'eps': 0
     }
@@ -158,7 +158,7 @@ if __name__ == "__main__":
                                 num_users=stats['n_users'],
                                 num_items=stats['n_items'])
 
-    sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=3, min_sequence_length=3)
+    sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=5, min_sequence_length=2)
 
 
 
