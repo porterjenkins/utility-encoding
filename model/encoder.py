@@ -5,15 +5,12 @@ import config.config as cfg
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import numpy as np
-import matplotlib.pyplot as plt
 from model.embedding import EmbeddingGrad
-from generator.generator import CoocurrenceGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 import pandas as pd
-from model.utils import write_embeddings
-from model._loss import mrs_loss, utility_loss
+from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
+from model._loss import loss_mse, utility_loss, mrs_loss
 
 
 def get_input_layer(word_idx, n_items):
@@ -68,17 +65,25 @@ class UtilityEncoder(nn.Module):
         self.weights = nn.Linear(h_dim_size, 1)
 
 
-    def forward(self, x, x_c, x_s):
+    def forward(self, x, x_c=None, x_s=None):
         e_i = self.embedding(x)
-        e_c = self.embedding(x_c)
-        e_s = self.embedding(x_s)
-
         y_hat = self.weights(e_i)
-        y_hat_c = self.weights(e_c)
-        y_hat_s = self.weights(e_s)
+
+        if x_c is not None and x_s is not None:
+
+            e_c = self.embedding(x_c)
+            e_s = self.embedding(x_s)
 
 
-        return y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s)
+            y_hat_c = self.weights(e_c)
+            y_hat_s = self.weights(e_s)
+
+            return y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s)
+
+        else:
+
+            return y_hat
+
 
     def get_embedding_mtx(self):
 
@@ -100,6 +105,111 @@ class UtilityEncoder(nn.Module):
         grad = self.embedding.get_grad(indices)
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
         return torch.squeeze(grad_at_idx)
+
+    def predict(self, X_test):
+        y_hat = self.forward(X_test)
+        return y_hat
+
+    def fit(self, X_train, y_train, batch_size, lr, n_epochs, loss_step, eps):
+        optimizer = optim.Adam(self.parameters(), lr=lr)
+
+        gen = SimpleBatchGenerator(X_train.values, y_train.values.reshape(-1, 1), batch_size=batch_size)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        while gen.epoch_cntr < n_epochs:
+
+            x_batch, y_batch = gen.get_batch(as_tensor=True)
+            # only consider items as features
+            x_batch = x_batch[:, 1]
+
+            y_hat = self.forward(x_batch)
+            loss = loss_mse(y_true=y_batch, y_hat=y_hat)
+            cum_loss += loss
+            loss.backward()
+            optimizer.step()
+
+            if iter % loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / loss_step
+                print("iteration: {} - loss: {}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{} --> {}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            iter += 1
+
+    def fit_utility_loss(self, X_train, y_train, batch_size, lr, n_epochs, loss_step, eps, user_item_rating_map,
+                         item_rating_map, k, n_items):
+
+        gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=batch_size,
+                                   shuffle=True,
+                                   user_item_rating_map=user_item_rating_map, item_rating_map=item_rating_map,
+                                   c_size=5,
+                                   s_size=k, n_item=n_items)
+
+        optimizer = optim.Adam(self.parameters(), lr=lr)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        while gen.epoch_cntr < n_epochs:
+
+            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
+
+            # only consider items as features
+            x_batch = x_batch[:, 1]
+
+            y_hat, y_hat_c, y_hat_s = self.forward(x_batch, x_c_batch, x_s_batch)
+
+            loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+            loss_u.backward(retain_graph=True)
+
+            x_grad = self.get_input_grad(x_batch)
+            x_c_grad = self.get_input_grad(x_c_batch)
+            x_s_grad = self.get_input_grad(x_s_batch)
+
+            loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
+            cum_loss += loss
+            loss.backward()
+            optimizer.step()
+
+            if iter % loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / loss_step
+                print("iteration: {} - loss: {}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{} --> {}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            iter += 1
+
+
 
 
 if __name__ == "__main__":
@@ -126,7 +236,11 @@ if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-    gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=8, shuffle=True,
+    item_encoder = UtilityEncoder(n_items=stats['n_items'], h_dim_size=d)
+    item_encoder.fit(X_train, y_train, batch_size, lr, n_epochs, loss_step, eps)
+
+
+    """gen = CoocurrenceGenerator(X=X_train.values, Y=y_train.values.reshape(-1, 1), batch_size=8, shuffle=True,
                                user_item_rating_map=user_item_rating_map, item_rating_map=item_rating_map, c_size=5,
                                s_size=5, n_item=stats['n_items'])
 
@@ -187,6 +301,6 @@ if __name__ == "__main__":
     write_embeddings(item_encoder.get_embedding_mtx(), stats['n_items'], fname=cfg.vals['model_dir'] + '/embedding.txt')
 
     plt.plot(np.arange(len(loss_arr)), np.log(loss_arr))
-    plt.savefig("learning_curve.pdf")
+    plt.savefig("learning_curve.pdf")"""
 
 
