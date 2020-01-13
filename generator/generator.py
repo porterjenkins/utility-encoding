@@ -166,6 +166,71 @@ class CoocurrenceGenerator(Generator):
         return x_batch, y_batch, X_c, y_c, X_s, y_s
 
 
+class SeqCoocurrenceGenerator(CoocurrenceGenerator):
+
+    def __init__(self, X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item, seq_len):
+
+        super().__init__(X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item)
+        self.seq_len = seq_len
+
+    def get_complement_set(self, x_batch):
+
+        X_c = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.int64)
+        y_c = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.float64)
+
+        users = x_batch[:, 0]
+
+        for i, user_id in enumerate(users):
+            item_ratings = self.user_item_rating_map[user_id]
+
+            for ts in range(self.seq_len):
+
+                items = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
+
+                X_c[i, ts, :] = items
+
+                for j, item in enumerate(items):
+                    y_c[i, ts, j] = item_ratings[item]
+
+        return X_c, y_c
+
+
+    def get_supp_set(self, x_batch):
+
+        X_s = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.int64)
+        y_s = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.float64)
+
+        users = x_batch[:, 0]
+
+        for i, user_id in enumerate(users):
+            user_items = list(self.user_item_rating_map[user_id].keys())
+
+            for ts in range(self.seq_len):
+
+                supp_cntr = 0
+                s_set = np.zeros(self.s_size, dtype=np.int64)
+                y_s_set = np.zeros(self.s_size, dtype=np.float32)
+
+                while supp_cntr < self.s_size:
+                    item = np.random.randint(0, self.n_item, 1)[0]
+                    if item not in user_items:
+                        s_set[supp_cntr] = item
+
+                        n_ratings = len(self.item_rating_map[item])
+                        ratings_idx = np.random.randint(0, n_ratings, 1)[0]
+                        y_s_set[supp_cntr] = self.item_rating_map[item][ratings_idx]
+
+                        supp_cntr +=1
+
+
+                X_s[i, ts, :] = s_set
+                y_s[i, ts, :] = y_s_set
+
+        return X_s, y_s
+
+
+
+
 
 
 
