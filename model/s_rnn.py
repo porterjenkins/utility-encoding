@@ -7,24 +7,26 @@ import torch.nn as nn
 import torch.optim as optim
 
 import config.config as cfg
-from generator.generator import SimpleBatchGenerator
-from model._loss import loss_mse
+from generator.generator import SimpleBatchGenerator, CoocurrenceGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 from preprocessing.interactions import Interactions
 import numpy as np
 from model.embedding import EmbeddingGrad
+from model._loss import mrs_loss, utility_loss, loss_mse
 
 
 
 
 
 class SRNNTrainer(object):
-    def __init__(self, srnn, data, params, use_cuda=False):
+    def __init__(self, srnn, data, params, use_cuda=False, use_utility_loss=False, user_item_rating_map=None, item_rating_map=None, k=None):
         self.srnn = srnn
         self.device = torch.device('cuda' if use_cuda else 'cpu')
-
+        self.use_utility_loss = use_utility_loss
         self.data = data
-
+        self.user_item_rating_map = user_item_rating_map
+        self.item_rating_map = item_rating_map
+        self.k = k
         self.batch_size = params['batch_size']
 
         self.h_dim = params['h_dim']
@@ -39,6 +41,8 @@ class SRNNTrainer(object):
         X = self.data[0]
         y = self.data[1]
         X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=1990)
+
+
         gen = self.generator(X_train, y_train)
 
         loss_arr = []
@@ -79,18 +83,44 @@ class SRNNTrainer(object):
         # print(rmse)
 
     def generator(self, X_train, y_train):
-        return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
+        if self.use_utility_loss:
+            return CoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
+                                        user_item_rating_map=self.user_item_rating_map,
+                                        item_rating_map=self.item_rating_map, shuffle=True,
+                                        c_size=self.k, s_size=self.k, n_item=self.srnn.n_items)
+        else:
+            return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
 
     def do_epoch(self, gen):
 
         h = self.srnn.init_hidden()
-        x_batch, y_batch = gen.get_batch(as_tensor=True)
-        # only consider items as features
-        x_batch = x_batch[:, 1:]
-        self.optimizer.zero_grad()
 
-        y_hat, h = self.srnn.forward(x_batch, h)
-        loss = loss_mse(y_true=np.transpose(y_batch), y_hat=y_hat)
+        if self.use_utility_loss:
+            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
+            x_batch = x_batch[:, 1:]
+            self.optimizer.zero_grad()
+
+            y_hat, h = self.srnn.forward(x_batch, h)
+            y_hat_c, h = self.srnn.forward(x_c_batch, h)
+            y_hat_s, h = self.srnn.forward(x_s_batch, h)
+
+
+            loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, np.transpose(y_batch), np.transpose(y_c), np.transpose(y_s))
+            loss_u.backward(retain_graph=True)
+
+            x_grad = self.srnn.get_input_grad(x_batch)
+            x_c_grad = self.srnn.get_input_grad(x_c_batch)
+            x_s_grad = self.srnn.get_input_grad(x_s_batch)
+
+            loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
+
+        else:
+            x_batch, y_batch = gen.get_batch(as_tensor=True)
+            # only consider items as features
+            x_batch = x_batch[:, 1:]
+            self.optimizer.zero_grad()
+            y_hat, h = self.srnn.forward(x_batch, h)
+            loss = loss_mse(y_true=np.transpose(y_batch), y_hat=y_hat)
         return loss
 
 
@@ -111,7 +141,7 @@ class SRNN(nn.Module):
 
         # self = self.to(self.device)
 
-    def forward(self, input, hidden):
+    def forward(self, input,hidden):
         embedded = self.embedding(input)
         embedded = embedded.unsqueeze(0)
         o, h = self.gru(torch.transpose(torch.squeeze(embedded),0, 1), hidden)
@@ -134,6 +164,23 @@ class SRNN(nn.Module):
         onehot = onehot.to(self.device)
         return onehot
 
+    def get_input_grad(self, indices):
+        """
+        Get gradients with respect to inputs
+        :param indices: (ndarray) array of item indices
+        :return: (tensor) tensor of gradients with respect to inputs
+        """
+        if indices.ndim == 1:
+            indices = indices.reshape(-1, 1)
+
+
+        dims = [d for d in indices.shape] + [1]
+        idx_tensor = torch.LongTensor(indices).reshape(dims)
+
+        grad = self.embedding.get_grad(indices)
+        grad_at_idx = torch.gather(grad, -1, idx_tensor)
+        return torch.squeeze(grad_at_idx)
+
 
 if __name__ == "__main__":
     params = {
@@ -149,6 +196,8 @@ if __name__ == "__main__":
     df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
     data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
     stats = load_dict_output(data_dir, "stats.json")
+    user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
+    item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
 
 
     interactions = Interactions(user_ids=df['user_id'].values,
@@ -165,5 +214,6 @@ if __name__ == "__main__":
     X = np.concatenate((sequence_users.reshape(-1,1), sequences), axis=1)
 
     srnn = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
-    trainer = SRNNTrainer(srnn, [X, y], params)
+    trainer = SRNNTrainer(srnn, [X, y], params, use_utility_loss=True, user_item_rating_map=user_item_rating_map,
+                          item_rating_map=item_rating_map, k=5)
     trainer.train()
