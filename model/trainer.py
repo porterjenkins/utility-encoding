@@ -112,10 +112,13 @@ class NeuralUtilityTrainer(object):
             # only consider items as features
             x_batch = x_batch[:, 1]
 
-            y_hat, y_hat_c, y_hat_s = self.model.forward(x_batch, x_c_batch, x_s_batch)
+            y_hat = self.model.forward(x_batch)
+            y_hat_c = self.model.forward(x_c_batch)
+            y_hat_s = self.model.forward(x_s_batch)
+
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
-            loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, y_batch, y_c, y_s)
+            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
             loss_u.backward(retain_graph=True)
 
             x_grad = self.model.get_input_grad(x_batch)
@@ -148,31 +151,3 @@ class NeuralUtilityTrainer(object):
 
         return loss_arr
 
-
-
-if __name__ == "__main__":
-    data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
-
-    df = pd.read_csv(data_dir + "ratings.csv")
-
-    X = df[['user_id', 'item_id']].values.astype(np.int64)
-    y = df['rating'].values.reshape(-1, 1)
-
-    user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
-    item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
-    stats = load_dict_output(data_dir, "stats.json")
-
-    X_train, X_test, y_train, y_test = split_train_test_user(X, y)
-
-
-
-    model = UtilityEncoder(n_items=stats['n_items'], h_dim_size=32)
-
-
-    trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=model, loss=loss_mse, \
-                                   n_epochs=5, batch_size=32, lr=1e-3, loss_step_print=1, eps=.01,
-                                   item_rating_map=item_rating_map, user_item_rating_map=user_item_rating_map,
-                                   c_size=5, s_size=5, n_items=stats["n_items"])
-
-    #trainer.fit()
-    trainer.fit_utility_loss()

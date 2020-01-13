@@ -41,21 +41,15 @@ class NeuralUtility(nn.Module):
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
         return torch.squeeze(grad_at_idx)
 
-    def forward(self, x, x_c=None, x_s=None):
+    def forward(self, x):
 
         e_i = self.embedding.forward(x)
-        y_hat = self.weights(e_i)
+        y_hat = self.backbone.forward(e_i)
 
-        if x_c is not None and x_s is not None:
+        return y_hat
 
-            e_c = self.embedding.forward(x_c)
-            e_s = self.embedding.forward(x_s)
 
-            y_hat_c = self.weights(e_c)
-            y_hat_s = self.weights(e_s)
+    def predict(self, X_test):
+        return self.forward(X_test)
 
-            return y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s)
 
-        else:
-
-            return y_hat
