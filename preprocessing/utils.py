@@ -4,7 +4,7 @@ import pickle
 import json
 import os
 from sklearn.preprocessing import OneHotEncoder
-import pandas as pd
+import numpy as np
 
 def get_one_hot_encodings(X, sparse=False):
     encoder = OneHotEncoder(sparse=sparse)
@@ -18,10 +18,12 @@ def get_one_hot_encodings(X, sparse=False):
     return pd.concat([X, one_hot], axis=1)
 
 
-def split_train_test_user(X, y, test_size=.2, random_seed=None):
-    #assert 'user_id' in list(X.columns)
-    # TODO: Back this function backwards compatible with other models
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X[:, 0],
+
+def split_train_test_user(X, y, test_size=.2, random_seed=None, strat_col=0):
+
+    assert isinstance(X, np.ndarray)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X[:, strat_col],
                                                         random_state=random_seed)
 
     return X_train, X_test, y_train, y_test
@@ -30,6 +32,7 @@ def split_train_test_user(X, y, test_size=.2, random_seed=None):
 def preprocess_user_item_df(df):
 
     n_rows = df.shape[0]
+    output = np.zeros((n_rows, 2))
 
     user_item_rating_map = {}
     item_rating_map = {}
@@ -76,12 +79,13 @@ def preprocess_user_item_df(df):
 
         user_item_rating_map[user_id_map[row.user_id]][item_id_map[row.item_id]] = row.rating
 
-        df.loc[idx, 'user_id'] = user_id_map[row.user_id]
-        df.loc[idx, 'item_id'] = item_id_map[row.item_id]
+        output[row_cntr, 0] = user_id_map[row.user_id]
+        output[row_cntr, 1] = item_id_map[row.item_id]
+
 
         row_cntr += 1
 
-        print("progress: {:.2f}%".format((row_cntr / n_rows)*100), end='\r')
+        print("progress: {:.4f}%".format((row_cntr / n_rows)*100), end='\r')
 
     stats = {
                 'n_users': user_cntr,
@@ -90,7 +94,7 @@ def preprocess_user_item_df(df):
 
 
 
-    return df, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
+    return output, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
 
 
 

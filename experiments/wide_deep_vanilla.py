@@ -19,27 +19,24 @@ batch_size = 32
 k = 5
 h_dim = 256
 n_epochs = 10
-lr = 1e-4
-loss_step = 50
+lr = 1e-3
+loss_step = 10
 eps = 0
 
 
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
-embedding = np.transpose(load_embedding(fname=cfg.vals['model_dir']+'/embedding.txt')).astype(np.float32)
-embedding = torch.from_numpy(embedding)
 
 data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 stats = load_dict_output(data_dir, "stats.json")
 
-X = df[['user_id', 'item_id']]
+X = df[['user_id', 'item_id']].astype(np.int64)
 y = df['rating']
 
 X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=1990)
 
 
 
-#wide_deep = WideAndDeep(stats['n_items'], h_dim_size=256, fc1=64, fc2=32)
-wide_deep = WideAndDeepPretrained(stats['n_items'], h_dim_size=256, wide=embedding, wide_dim=32, fc1=64, fc2=32)
+wide_deep = WideAndDeep(stats['n_items'], h_dim_size=256, fc1=64, fc2=32)
 
 optimizer = optim.Adam(wide_deep.parameters(), lr=lr)
 
