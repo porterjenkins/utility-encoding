@@ -12,7 +12,7 @@ import numpy as np
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=10000)
 df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
 
-X = df[['user_id', 'item_id', 'rating']]
+
 
 arr, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats = preprocess_user_item_df(X)
 
