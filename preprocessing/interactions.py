@@ -206,9 +206,11 @@ class Interactions(object):
             raise ValueError('Cannot convert to sequences, '
                              'timestamps not available.')
 
-        if 0 in self.item_ids:
-            raise ValueError('0 is used as an item id, conflicting '
-                             'with the sequence padding value.')
+        #if 0 in self.item_ids:
+        #    raise ValueError('0 is used as an item id, conflicting '
+        #                     'with the sequence padding value.')
+
+        assert(min_sequence_length == max_sequence_length)
 
         if step_size is None:
             step_size = max_sequence_length

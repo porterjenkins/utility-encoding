@@ -40,8 +40,8 @@ def preprocess_user_item_df(df):
     id_user_map = {}
     id_item_map = {}
 
-    user_cntr = 1
-    item_cntr = 1
+    user_cntr = 0
+    item_cntr = 0
 
     row_cntr = 0
     for idx, row in df.iterrows():
