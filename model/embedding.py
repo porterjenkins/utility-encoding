@@ -25,11 +25,13 @@ class EmbeddingGrad(nn.Module):
     def _collect(self, indices):
         if indices.ndim == 1:
             x = self.input[indices]
-        elif indices.ndim == 2:
-            dims = indices.shape
-            x = torch.zeros((dims[0], dims[1], self.num_embedding))
+        else:
+            dims = list(indices.shape)
+            #x = torch.zeros((dims[0], dims[1], self.num_embedding))
+            x = torch.zeros(dims + [self.num_embedding])
             for i, row in enumerate(indices):
                 x[i] = self.input[row]
+
         return x.to(self.device)
 
     def forward(self, indices):
