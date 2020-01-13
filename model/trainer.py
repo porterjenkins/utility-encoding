@@ -66,6 +66,9 @@ class NeuralUtilityTrainer(object):
             # only consider items as features
             x_batch = x_batch[:, 1]
 
+            # zero gradient
+            self.optimizer.zero_grad()
+
             y_hat = self.model.forward(x_batch)
             loss = self.loss(y_true=y_batch, y_hat=y_hat)
             cum_loss += loss
@@ -116,6 +119,9 @@ class NeuralUtilityTrainer(object):
             y_hat_c = self.model.forward(x_c_batch)
             y_hat_s = self.model.forward(x_s_batch)
 
+
+            # zero gradient
+            self.optimizer.zero_grad()
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
