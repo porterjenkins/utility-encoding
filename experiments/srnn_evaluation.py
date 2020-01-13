@@ -14,7 +14,7 @@ params = {
     'k': 5,
     'h_dim': 256,
     'n_epochs': 15,
-    'lr': 1e-4,
+    'lr': 1e-3,
     'loss_step': 10,
     'eps': 0
 }
