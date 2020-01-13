@@ -9,7 +9,7 @@ import numpy as np
 
 
 
-df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv")
+df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=10000)
 df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
 
 X = df[['user_id', 'item_id', 'rating']]

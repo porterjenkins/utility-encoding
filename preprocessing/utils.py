@@ -18,10 +18,11 @@ def get_one_hot_encodings(X, sparse=False):
     return pd.concat([X, one_hot], axis=1)
 
 
-def split_train_test_user(X, y, test_size=.2, random_seed=None):
-    assert 'user_id' in list(X.columns)
+def split_train_test_user(X, y, test_size=.2, random_seed=None, strat_col=0):
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X['user_id'],
+    assert isinstance(X, np.ndarray)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=X[:, strat_col],
                                                         random_state=random_seed)
 
     return X_train, X_test, y_train, y_test
