@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pandas as pd
 import torch
@@ -13,9 +14,6 @@ from preprocessing.interactions import Interactions
 import numpy as np
 from model.embedding import EmbeddingGrad
 from model._loss import mrs_loss, utility_loss, loss_mse
-
-
-
 
 
 class SRNNTrainer(object):
@@ -121,6 +119,7 @@ class SRNNTrainer(object):
             self.optimizer.zero_grad()
             y_hat, h = self.srnn.forward(x_batch, h)
             loss = loss_mse(y_true=np.transpose(y_batch), y_hat=y_hat)
+
         return loss
 
 
@@ -134,20 +133,24 @@ class SRNN(nn.Module):
         self.gru_hidden_size = gru_hidden_size
         self.n_layers = n_layers
         self.device = torch.device('cuda' if use_cuda else 'cpu')
+        self.use_cuda = use_cuda
         self.gru = nn.GRU(input_size=self.h_dim_size, hidden_size=self.h_dim_size, num_layers=self.n_layers)
         self.activation = nn.Tanh()
         self.out = nn.Linear(h_dim_size, 1)
-        self.embedding = EmbeddingGrad(n_items, h_dim_size)
-
-        # self = self.to(self.device)
+        self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
+        if use_cuda:
+            self = self.cuda()
 
     def forward(self, input,hidden):
         embedded = self.embedding(input)
         embedded = embedded.unsqueeze(0)
-        o, h = self.gru(torch.transpose(torch.squeeze(embedded),0, 1), hidden)
-        #o = o.view(-1, o.size(-1))
+        o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1), hidden)
+        # o = o.view(-1, o.size(-1))
 
         y_hat = torch.squeeze(self.activation(self.out(o)))
+        if self.use_cuda:
+            y_hat = y_hat.to(self.device)
+            h = h.to(self.device)
         return y_hat, h
 
     def init_hidden(self):
@@ -199,7 +202,6 @@ if __name__ == "__main__":
     user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
     item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
 
-
     interactions = Interactions(user_ids=df['user_id'].values,
                                 item_ids=df['item_id'].values,
                                 ratings=df['rating'].values,
@@ -209,9 +211,7 @@ if __name__ == "__main__":
 
     sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=5, min_sequence_length=2)
 
-
-
-    X = np.concatenate((sequence_users.reshape(-1,1), sequences), axis=1)
+    X = np.concatenate((sequence_users.reshape(-1, 1), sequences), axis=1)
 
     srnn = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
     trainer = SRNNTrainer(srnn, [X, y], params, use_utility_loss=True, user_item_rating_map=user_item_rating_map,
