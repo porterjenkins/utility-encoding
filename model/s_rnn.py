@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import config.config as cfg
-from generator.generator import SimpleBatchGenerator, CoocurrenceGenerator
+from generator.generator import SimpleBatchGenerator, CoocurrenceGenerator, SeqCoocurrenceGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 from preprocessing.interactions import Interactions
 import numpy as np
@@ -32,6 +32,7 @@ class SRNNTrainer(object):
         self.lr = params['lr']
         self.loss_step = params['loss_step']
         self.eps = params['eps']
+        self.seq_len = params['seq_len']
 
         self.optimizer = optim.Adam(srnn.parameters(), lr=self.lr)
 
@@ -82,25 +83,40 @@ class SRNNTrainer(object):
 
     def generator(self, X_train, y_train):
         if self.use_utility_loss:
-            return CoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
+            return SeqCoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
                                         user_item_rating_map=self.user_item_rating_map,
                                         item_rating_map=self.item_rating_map, shuffle=True,
-                                        c_size=self.k, s_size=self.k, n_item=self.srnn.n_items)
+                                        c_size=self.k, s_size=self.k, n_item=self.srnn.n_items,
+                                           seq_len=self.seq_len)
         else:
             return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
 
     def do_epoch(self, gen):
 
-        h = self.srnn.init_hidden()
+        h_init = self.srnn.init_hidden()
 
         if self.use_utility_loss:
             x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
             x_batch = x_batch[:, 1:]
             self.optimizer.zero_grad()
 
-            y_hat, h = self.srnn.forward(x_batch, h)
-            y_hat_c, h = self.srnn.forward(x_c_batch, h)
-            y_hat_s, h = self.srnn.forward(x_s_batch, h)
+            y_hat, h = self.srnn.forward(x_batch, h_init)
+
+            x_c_batch = torch.transpose(x_c_batch, 0, 1)
+            x_s_batch = torch.transpose(x_s_batch, 0, 1)
+
+            set_dims = (self.seq_len, self.k, self.batch_size)
+
+            y_hat_c = torch.zeros(set_dims)
+            for i in range(x_c_batch.shape[0]):
+                y_hat_c[i], h = self.srnn.forward(x_c_batch[i], h_init)
+
+            y_hat_s = torch.zeros(set_dims)
+            for i in range(x_c_batch.shape[0]):
+                y_hat_s[i], h = self.srnn.forward(x_s_batch[i], h_init)
+
+            y_hat_c = torch.transpose(y_hat_c, 0,1)
+            y_hat_s = torch.transpose(y_hat_s, 0, 1)
 
 
             loss_u = utility_loss(y_hat, y_hat_c, y_hat_s, np.transpose(y_batch), np.transpose(y_c), np.transpose(y_s))
@@ -110,14 +126,14 @@ class SRNNTrainer(object):
             x_c_grad = self.srnn.get_input_grad(x_c_batch)
             x_s_grad = self.srnn.get_input_grad(x_s_batch)
 
-            loss = mrs_loss(loss_u, x_grad, x_c_grad, x_s_grad)
+            loss = mrs_loss(loss_u, x_grad.unsqueeze(2), torch.transpose(x_c_grad,0,1), torch.transpose(x_s_grad,0,1))
 
         else:
             x_batch, y_batch = gen.get_batch(as_tensor=True)
             # only consider items as features
             x_batch = x_batch[:, 1:]
             self.optimizer.zero_grad()
-            y_hat, h = self.srnn.forward(x_batch, h)
+            y_hat, h = self.srnn.forward(x_batch, h_init)
             loss = loss_mse(y_true=np.transpose(y_batch), y_hat=y_hat)
 
         return loss
@@ -141,9 +157,9 @@ class SRNN(nn.Module):
         if use_cuda:
             self = self.cuda()
 
-    def forward(self, input,hidden):
+    def forward(self, input, hidden):
         embedded = self.embedding(input)
-        embedded = embedded.unsqueeze(0)
+        #embedded = embedded.unsqueeze(0)
         o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1), hidden)
         # o = o.view(-1, o.size(-1))
 
@@ -192,8 +208,9 @@ if __name__ == "__main__":
         'h_dim': 256,
         'n_epochs': 100,
         'lr': 1e-3,
-        'loss_step': 10,
-        'eps': 0
+        'loss_step': 1,
+        'eps': 0,
+        'seq_len': 4
     }
 
     df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
@@ -209,11 +226,12 @@ if __name__ == "__main__":
                                 num_users=stats['n_users'],
                                 num_items=stats['n_items'])
 
-    sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=5, min_sequence_length=2)
+    sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=params['seq_len'],
+                                                                     min_sequence_length=params['seq_len'])
 
     X = np.concatenate((sequence_users.reshape(-1, 1), sequences), axis=1)
 
     srnn = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
     trainer = SRNNTrainer(srnn, [X, y], params, use_utility_loss=True, user_item_rating_map=user_item_rating_map,
-                          item_rating_map=item_rating_map, k=5)
+                          item_rating_map=item_rating_map, k=5, use_cuda=False)
     trainer.train()
