@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
     df = pd.read_csv(data_dir + "ratings.csv")
 
-    X = df[['user_id', 'item_id']].values
+    X = df[['user_id', 'item_id']].values.astype(np.int64)
     y = df['rating'].values.reshape(-1, 1)
 
     user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
@@ -170,6 +170,9 @@ if __name__ == "__main__":
 
 
     trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=model, loss=loss_mse, \
-                                   n_epochs=5, batch_size=32, lr=1e-3, loss_step_print=35, eps=.01)
+                                   n_epochs=5, batch_size=32, lr=1e-3, loss_step_print=1, eps=.01,
+                                   item_rating_map=item_rating_map, user_item_rating_map=user_item_rating_map,
+                                   c_size=5, s_size=5, n_items=stats["n_items"])
 
-    trainer.fit()
+    #trainer.fit()
+    trainer.fit_utility_loss()
