@@ -56,5 +56,5 @@ trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=model, lo
                                item_rating_map=item_rating_map, user_item_rating_map=user_item_rating_map,
                                c_size=5, s_size=5, n_items=stats["n_items"])
 
-trainer.fit()
-#trainer.fit_utility_loss()
+#trainer.fit()
+trainer.fit_utility_loss()
