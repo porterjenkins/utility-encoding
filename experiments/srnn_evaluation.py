@@ -13,12 +13,12 @@ from experiments.utils import get_eval_metrics
 params = {
     'batch_size': 32,
     'k': 5,
-    'h_dim': 10,
+    'h_dim': 256,
     'n_epochs': 10,
     'lr': 5e-4,
     'loss_step': 25,
     'eps': 0.05,
-    'seq_len': 2
+    'seq_len': 4
 }
 
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
