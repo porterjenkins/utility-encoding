@@ -6,17 +6,19 @@ import config.config as cfg
 from preprocessing.utils import split_train_test_user, load_dict_output
 from preprocessing.interactions import Interactions
 import numpy as np
-from model.s_rnn import SRNN, SRNNTrainer
+from baselines.s_rnn import SRNN, SRNNTrainer
+from experiments.utils import get_eval_metrics
 
 
 params = {
     'batch_size': 32,
     'k': 5,
-    'h_dim': 256,
-    'n_epochs': 15,
-    'lr': 1e-3,
-    'loss_step': 10,
-    'eps': 0
+    'h_dim': 10,
+    'n_epochs': 10,
+    'lr': 5e-4,
+    'loss_step': 25,
+    'eps': 0.05,
+    'seq_len': 2
 }
 
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
@@ -32,11 +34,46 @@ interactions = Interactions(user_ids=df['user_id'].values,
                             num_users=stats['n_users'],
                             num_items=stats['n_items'])
 
-sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=5, min_sequence_length=2)
+sequence_users, sequences, y, n_items = interactions.to_sequence(max_sequence_length=params['seq_len'],
+                                                                 min_sequence_length=params['seq_len'])
 
 X = np.concatenate((sequence_users.reshape(-1, 1), sequences), axis=1)
 
 srnn = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
 trainer = SRNNTrainer(srnn, [X, y], params, use_utility_loss=False, user_item_rating_map=user_item_rating_map,
                       item_rating_map=item_rating_map, k=5)
-trainer.train()
+srnn = trainer.train()
+
+
+# trainer.X_test[:, 1:], hidden=trainer.h_init)
+preds, _ = srnn.predict(trainer.X_test[:, 1:])
+
+preds = preds.detach().numpy()
+
+
+# compute evaluate metrics
+x_test_user = np.transpose(trainer.X_test[: , 0])
+x_test_user_flat = np.zeros((len(x_test_user)*params['seq_len'], 1))
+
+
+i = 0
+user_cntr = 0
+while i < len(x_test_user)*params['seq_len']:
+    user_id = x_test_user[user_cntr]
+    x_test_user_flat[i, 0] = user_id
+
+    i += 1
+
+    if i % params['seq_len'] == 0:
+        user_cntr += 1
+
+
+output = pd.DataFrame(np.concatenate([x_test_user_flat,
+                                      trainer.y_test.reshape(-1,1),
+                                      preds.reshape(-1,1)], axis=1), columns = ['user_id', 'y_true', 'pred'])
+
+
+output, rmse, dcg = get_eval_metrics(output, at_k=5)
+
+print(rmse)
+print(dcg)
