@@ -39,10 +39,10 @@ class SRNNTrainer(object):
     def train(self):
         X = self.data[0]
         y = self.data[1]
-        X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=1990)
+        self.X_train, self.X_test, self.y_train, self.y_test = split_train_test_user(X, y, random_seed=1990)
 
 
-        gen = self.generator(X_train, y_train)
+        gen = self.generator(self.X_train, self.y_train)
 
         loss_arr = []
         iter = 0
@@ -81,6 +81,8 @@ class SRNNTrainer(object):
         # rmse = np.sqrt(np.mean(np.power(y_test.values - y_hat.flatten().detach().numpy(), 2)))
         # print(rmse)
 
+        return self.srnn
+
     def generator(self, X_train, y_train):
         if self.use_utility_loss:
             return SeqCoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
@@ -93,14 +95,14 @@ class SRNNTrainer(object):
 
     def do_epoch(self, gen):
 
-        h_init = self.srnn.init_hidden()
+        self.h_init = self.srnn.init_hidden()
 
         if self.use_utility_loss:
             x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = gen.get_batch(as_tensor=True)
             x_batch = x_batch[:, 1:]
             self.optimizer.zero_grad()
 
-            y_hat, h = self.srnn.forward(x_batch, h_init)
+            y_hat, h = self.srnn.forward(x_batch, self.h_init)
 
             x_c_batch = torch.transpose(x_c_batch, 0, 1)
             x_s_batch = torch.transpose(x_s_batch, 0, 1)
@@ -109,11 +111,11 @@ class SRNNTrainer(object):
 
             y_hat_c = torch.zeros(set_dims)
             for i in range(x_c_batch.shape[0]):
-                y_hat_c[i], h = self.srnn.forward(x_c_batch[i], h_init)
+                y_hat_c[i], h = self.srnn.forward(x_c_batch[i], self.h_init)
 
             y_hat_s = torch.zeros(set_dims)
             for i in range(x_c_batch.shape[0]):
-                y_hat_s[i], h = self.srnn.forward(x_s_batch[i], h_init)
+                y_hat_s[i], h = self.srnn.forward(x_s_batch[i], self.h_init)
 
             y_hat_c = torch.transpose(y_hat_c, 0,1)
             y_hat_s = torch.transpose(y_hat_s, 0, 1)
@@ -133,8 +135,10 @@ class SRNNTrainer(object):
             # only consider items as features
             x_batch = x_batch[:, 1:]
             self.optimizer.zero_grad()
-            y_hat, h = self.srnn.forward(x_batch, h_init)
+            y_hat, h = self.srnn.forward(x_batch, self.h_init)
             loss = loss_mse(y_true=np.transpose(y_batch), y_hat=y_hat)
+
+
 
         return loss
 
@@ -199,6 +203,13 @@ class SRNN(nn.Module):
         grad = self.embedding.get_grad(indices)
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
         return torch.squeeze(grad_at_idx)
+
+    def predict(self, X_test):
+
+        n_samples = X_test.shape[0]
+        h = torch.zeros(self.n_layers, n_samples, self.h_dim_size).to(self.device)
+
+        return self.forward(X_test, hidden=h)
 
 
 if __name__ == "__main__":
