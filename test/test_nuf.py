@@ -52,9 +52,10 @@ model = NeuralUtility(backbone=mlp, n_items=stats['n_items'], h_dim_size=64)
 
 
 trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=model, loss=loss_mse, \
-                               n_epochs=5, batch_size=32, lr=1e-3, loss_step_print=1, eps=.01,
+                               n_epochs=5, batch_size=32, lr=1e-3, loss_step_print=25, eps=.001,
                                item_rating_map=item_rating_map, user_item_rating_map=user_item_rating_map,
-                               c_size=5, s_size=5, n_items=stats["n_items"])
+                               c_size=5, s_size=5, n_items=stats["n_items"], checkpoint=True,
+                               model_path=None, model_name='test_nuf')
 
 #trainer.fit()
 trainer.fit_utility_loss()

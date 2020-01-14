@@ -20,7 +20,8 @@ from model.encoder import UtilityEncoder
 class NeuralUtilityTrainer(object):
 
     def __init__(self, X_train, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
-                 user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None):
+                 user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
+                 checkpoint=False, model_path=None, model_name=None):
         self.X_train = X_train
         self.y_train = y_train
         self.model = model
@@ -36,6 +37,12 @@ class NeuralUtilityTrainer(object):
         self.c_size = c_size
         self.s_size = s_size
         self.n_items = n_items
+        self.checkpoint = checkpoint
+        self.model_path = model_path
+        if model_name is None:
+            self.model_name = 'model'
+        else:
+            self.model_name = model_name
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
@@ -48,6 +55,20 @@ class NeuralUtilityTrainer(object):
                                         c_size=self.c_size, s_size=self.s_size, n_item=self.n_items)
         else:
             return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
+
+
+    def checkpoint_model(self, suffix):
+
+        if self.checkpoint:
+
+            if self.model_path is None:
+                fname = "{}_{}.pt".format(self.model_name, suffix)
+            else:
+                fname = "{}/{}_{}.pt".format(self.model_path, self.model_name, suffix)
+
+
+            with open(fname, 'wb') as f:
+                torch.save(self.model, f)
 
 
     def fit(self):
@@ -92,7 +113,12 @@ class NeuralUtilityTrainer(object):
                 else:
                     prev_loss = loss
 
+            if generator.check():
+                # Check if epoch is ending. Checkpoint and get evaluation metrics
+                self.checkpoint_model(suffix=iter)
+
             iter += 1
+
 
         return loss_arr
 
@@ -152,6 +178,10 @@ class NeuralUtilityTrainer(object):
                     break
                 else:
                     prev_loss = loss
+
+            if generator.check():
+                # Check if epoch is ending. Checkpoint and get evaluation metrics
+                self.checkpoint_model(suffix=iter)
 
             iter += 1
 
