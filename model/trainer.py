@@ -109,16 +109,13 @@ class NeuralUtilityTrainer(object):
 
             y_hat = self.model.forward(user_indices, x_batch)
 
-            for i in range(x_c_batch.shape[1]):
-                # zero gradient
-                y_hat_c = self.model.forward(user_indices, x_c_batch[:, i])
-                y_hat_s = self.model.forward(user_indices, x_s_batch[:, i])
+            self.optimizer.zero_grad()
+            y_hat_c = self.model.forward(user_indices, x_c_batch)
+            y_hat_s = self.model.forward(user_indices, x_s_batch)
 
-                # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
-                loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c[:, i],
-                                      y_s[:, i])
-                loss_u.backward(retain_graph=True)
-                self.optimizer.zero_grad()
+            # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
+            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
+            loss_u.backward(retain_graph=True)
 
             x_grad = self.model.get_input_grad(x_batch)
             x_c_grad = self.model.get_input_grad(x_c_batch)

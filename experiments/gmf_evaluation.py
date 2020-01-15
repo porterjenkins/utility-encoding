@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
 import pandas as pd
@@ -8,9 +9,6 @@ from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse
 from baselines.gmf import GMF
-
-
-
 
 data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 
@@ -25,7 +23,6 @@ stats = load_dict_output(data_dir, "stats.json")
 
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-
 c = {'num_users': stats['n_users'],
      'num_items': stats['n_items'],
      'latent_dim': 64}
@@ -37,5 +34,5 @@ trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=model, lo
                                item_rating_map=item_rating_map, user_item_rating_map=user_item_rating_map,
                                c_size=5, s_size=5, n_items=stats["n_items"])
 
-#trainer.fit()
+# trainer.fit()
 trainer.fit_utility_loss()
