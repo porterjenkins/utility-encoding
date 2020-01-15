@@ -1,0 +1,6 @@
+{
+  "hidden_dim_size": 32,
+  "amazon_dir": "/Volumes/Porter's Data/penn-state/data-sets/reco/amazon-18",
+  "movielens_dir": "/Volumes/Porter's Data/penn-state/data-sets/reco/movie-lens",
+  "model_dir": "/Volumes/Porter's Data/penn-state/data-sets/reco/model"
+}

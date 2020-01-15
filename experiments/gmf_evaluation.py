@@ -1,11 +1,11 @@
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
 import pandas as pd
 from preprocessing.utils import split_train_test_user, load_dict_output
 from model.trainer import NeuralUtilityTrainer
-from model.neural_utility_function import NeuralUtility
 import numpy as np
 from model._loss import loss_mse
 import torch
@@ -13,6 +13,7 @@ from baselines.gmf import GMF
 import pandas as pd
 import argparse
 from experiments.utils import get_eval_metrics
+from model.neural_utility_function import NeuralUtility
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
@@ -33,9 +34,6 @@ params = {"loss": 'mse',
                 "loss_step": 25,
                 "eval_k": 5
                 }
-
-
-
 
 
 data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
@@ -85,3 +83,4 @@ output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
 
 print("rmse: {:.4}".format(rmse))
 print("dcg: {:.4}".format(dcg))
+
