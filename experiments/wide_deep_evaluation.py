@@ -11,6 +11,14 @@ from baselines.gmf import GMF
 from baselines.wide_and_deep import WideAndDeep
 from sklearn.metrics import mean_squared_error
 from experiments.utils import get_eval_metrics
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
+args = parser.parse_args()
+
+print(args.cuda)
+
 
 
 params = {"loss": 'utility',

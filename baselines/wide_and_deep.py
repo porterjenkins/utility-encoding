@@ -90,17 +90,22 @@ class WideAndDeepPretrained(nn.Module):
 
 class WideAndDeep(nn.Module):
 
-    def __init__(self, n_items, h_dim_size, fc1=64, fc2=32):
+    def __init__(self, n_items, h_dim_size, fc1=64, fc2=32, use_cuda=False):
         super(WideAndDeep, self).__init__()
         self.n_items = n_items
         self.h_dim_size = h_dim_size
+        self.device = torch.device('cuda' if use_cuda else 'cpu')
+        self.use_cuda = use_cuda
 
 
-        self.embedding = EmbeddingGrad(n_items, h_dim_size)
+        self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
 
         self.output_layer = nn.Linear(n_items + fc2, 1)
+
+        if use_cuda:
+            self = self.cuda()
 
 
     def get_input_grad(self, indices):
@@ -130,6 +135,10 @@ class WideAndDeep(nn.Module):
         h = torch.cat([h, wide], dim=-1)
 
         y_hat = self.output_layer(h)
+
+        if self.use_cuda:
+            y_hat = y_hat.to(self.device)
+
         return y_hat
 
 
