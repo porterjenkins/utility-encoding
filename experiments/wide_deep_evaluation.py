@@ -2,7 +2,6 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
-import pandas as pd
 from preprocessing.utils import split_train_test_user, load_dict_output
 from model.trainer import NeuralUtilityTrainer
 import numpy as np
@@ -12,6 +11,7 @@ from baselines.wide_and_deep import WideAndDeep
 from sklearn.metrics import mean_squared_error
 from experiments.utils import get_eval_metrics
 import argparse
+import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
@@ -37,9 +37,10 @@ print("Reading dataset")
 data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 df = pd.read_csv(data_dir + "ratings.csv")
 
-
 X = df[['user_id', 'item_id']].values.astype(np.int64)
 y = df['rating'].values.reshape(-1, 1)
+
+del df
 
 print("Dataset read complete...")
 
