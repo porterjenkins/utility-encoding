@@ -21,7 +21,7 @@ print(args.cuda)
 
 
 
-params = {"loss": 'utility',
+params = {"loss": 'mse',
                 "h_dim_size": 256,
                 "n_epochs": 10,
                 "batch_size": 32,
@@ -29,7 +29,7 @@ params = {"loss": 'utility',
                 "eps": 0.01,
                 "c_size": 5,
                 "s_size": 5,
-                "loss_step": 20
+                "loss_step": 1
                 }
 
 
@@ -65,8 +65,10 @@ trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=wide_deep
 
 
 if params['loss'] == 'utility':
+    print("utility loss")
     trainer.fit_utility_loss()
 else:
+    print("mse loss")
     trainer.fit()
 
 
