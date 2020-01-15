@@ -51,6 +51,9 @@ X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
 wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32)
 
+print("Model intialized")
+print("Beginning Training...")
+
 trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=wide_deep, loss=loss_mse, \
                                n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                                lr=params["lr"], loss_step_print=params["loss_step"],
