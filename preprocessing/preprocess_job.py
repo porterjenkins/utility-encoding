@@ -1,15 +1,22 @@
+import argparse
+
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from preprocessing.utils import preprocess_user_item_df, write_dict_output
 import pandas as pd
 import config.config as cfg
 import numpy as np
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--nrows", type = int, help="limit number of rows")
+args = parser.parse_args()
 
-df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=10000)
+
+
+
+df = pd.read_csv(cfg.vals['movielens_dir'] + "/ratings.csv", nrows=args.nrows)
 df.columns = ['user_id', 'item_id', 'rating', 'timestamp']
 
 X = df[['user_id', 'item_id', 'rating']]
