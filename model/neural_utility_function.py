@@ -17,9 +17,10 @@ from model._loss import loss_mse, utility_loss, mrs_loss
 
 class NeuralUtility(nn.Module):
 
-    def __init__(self, backbone, n_items, h_dim_size):
+    def __init__(self, backbone, n_items, h_dim_size, use_embedding=True):
         super(NeuralUtility, self).__init__()
 
+        self.use_embedding = use_embedding
         self.embedding = EmbeddingGrad(n_items, h_dim_size)
         self.backbone = backbone
 
@@ -37,19 +38,27 @@ class NeuralUtility(nn.Module):
         dims = [d for d in indices.shape] + [1]
         idx_tensor = torch.LongTensor(indices).reshape(dims)
 
-        grad = self.embedding.get_grad(indices)
+        if self.use_embedding:
+            grad = self.embedding.get_grad(indices)
+        else:
+            grad = self.backbone.embedding.get_grad(indices)
+
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
         return torch.squeeze(grad_at_idx)
 
-    def forward(self, x):
+    def forward(self, users, items):
 
-        e_i = self.embedding.forward(x)
-        y_hat = self.backbone.forward(e_i)
+        if self.use_embedding:
+            e_i = self.embedding.forward(users)
+            y_hat = self.backbone.forward(e_i)
+        else:
+            y_hat = self.backbone.forward(users, items)
+
 
         return y_hat
 
 
-    def predict(self, X_test):
-        return self.forward(X_test)
+    def predict(self, users, items):
+        return self.forward(users, items)
 
 

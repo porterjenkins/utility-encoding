@@ -49,6 +49,15 @@ class NeuralUtilityTrainer(object):
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
+    def get_item_user_indices(self, batch):
+
+
+        ## user ids in first column, item id's in remaining
+        user_ids = batch[:, 0]
+        item_ids = batch[:, 1:]
+
+        return user_ids, item_ids
+
 
     def get_generator(self, X_train, y_train, use_utility_loss):
         if use_utility_loss:
@@ -97,13 +106,12 @@ class NeuralUtilityTrainer(object):
         while generator.epoch_cntr < self.n_epochs:
 
             x_batch, y_batch = generator.get_batch(as_tensor=True)
-            # only consider items as features
-            x_batch = x_batch[:, 1]
+            users, items = self.get_item_user_indices(x_batch)
 
             # zero gradient
             self.optimizer.zero_grad()
 
-            y_hat = self.model.forward(x_batch)
+            y_hat = self.model.forward(users, items)
             loss = self.loss(y_true=y_batch, y_hat=y_hat)
             cum_loss += loss
             loss.backward()
@@ -156,12 +164,11 @@ class NeuralUtilityTrainer(object):
 
             x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
 
-            # only consider items as features
-            x_batch = x_batch[:, 1]
+            users, items = self.get_item_user_indices(x_batch)
 
-            y_hat = self.model.forward(x_batch)
-            y_hat_c = self.model.forward(x_c_batch)
-            y_hat_s = self.model.forward(x_s_batch)
+            y_hat = self.model.forward(users, items)
+            y_hat_c = self.model.forward(users, x_c_batch)
+            y_hat_s = self.model.forward(users, x_s_batch)
 
 
             # zero gradient
@@ -171,7 +178,7 @@ class NeuralUtilityTrainer(object):
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
             loss_u.backward(retain_graph=True)
 
-            x_grad = self.model.get_input_grad(x_batch)
+            x_grad = self.model.get_input_grad(items)
             x_c_grad = self.model.get_input_grad(x_c_batch)
             x_s_grad = self.model.get_input_grad(x_s_batch)
 
