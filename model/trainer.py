@@ -1,20 +1,11 @@
 import os
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import config.config as cfg
 import torch
-import torch.nn as nn
 import torch.optim as optim
-import numpy as np
-from model.embedding import EmbeddingGrad
-from preprocessing.utils import split_train_test_user, load_dict_output
-import pandas as pd
 from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
-from model._loss import loss_mse, utility_loss, mrs_loss
-from model.encoder import UtilityEncoder
-
-
-
+from model._loss import utility_loss, mrs_loss
 
 
 class NeuralUtilityTrainer(object):
@@ -39,7 +30,6 @@ class NeuralUtilityTrainer(object):
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
-
     def get_generator(self, X_train, y_train, use_utility_loss):
         if use_utility_loss:
             return CoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
@@ -48,7 +38,6 @@ class NeuralUtilityTrainer(object):
                                         c_size=self.c_size, s_size=self.s_size, n_item=self.n_items)
         else:
             return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
-
 
     def fit(self):
 
@@ -96,7 +85,10 @@ class NeuralUtilityTrainer(object):
 
         return loss_arr
 
-
+    def user_item_batch(self, input):
+        x_user_batch = input[:, 0]
+        x_batch = input[:, 1]
+        return x_user_batch, x_batch
 
     def fit_utility_loss(self):
 
@@ -113,19 +105,20 @@ class NeuralUtilityTrainer(object):
             x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
 
             # only consider items as features
-            x_batch = x_batch[:, 1]
+            user_indices, x_batch = self.user_item_batch(x_batch)
 
-            y_hat = self.model.forward(x_batch)
-            y_hat_c = self.model.forward(x_c_batch)
-            y_hat_s = self.model.forward(x_s_batch)
+            y_hat = self.model.forward(user_indices, x_batch)
 
+            for i in range(x_c_batch.shape[1]):
+                # zero gradient
+                y_hat_c = self.model.forward(user_indices, x_c_batch[:, i])
+                y_hat_s = self.model.forward(user_indices, x_s_batch[:, i])
 
-            # zero gradient
-            self.optimizer.zero_grad()
-
-            # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
-            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
-            loss_u.backward(retain_graph=True)
+                # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
+                loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c[:, i],
+                                      y_s[:, i])
+                loss_u.backward(retain_graph=True)
+                self.optimizer.zero_grad()
 
             x_grad = self.model.get_input_grad(x_batch)
             x_c_grad = self.model.get_input_grad(x_c_batch)
@@ -156,4 +149,3 @@ class NeuralUtilityTrainer(object):
             iter += 1
 
         return loss_arr
-

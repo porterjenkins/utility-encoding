@@ -5,10 +5,8 @@ import config.config as cfg
 import pandas as pd
 from preprocessing.utils import split_train_test_user, load_dict_output
 from model.trainer import NeuralUtilityTrainer
-from model.neural_utility_function import NeuralUtility
 import numpy as np
 from model._loss import loss_mse
-import torch.nn as nn
 from baselines.gmf import GMF
 
 
