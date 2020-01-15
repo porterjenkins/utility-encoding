@@ -33,6 +33,7 @@ params = {"loss": 'utility',
                 }
 
 
+print("Reading dataset")
 data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 df = pd.read_csv(data_dir + "ratings.csv")
 
@@ -40,6 +41,7 @@ df = pd.read_csv(data_dir + "ratings.csv")
 X = df[['user_id', 'item_id']].values.astype(np.int64)
 y = df['rating'].values.reshape(-1, 1)
 
+print("Dataset read complete...")
 
 user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
 item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
