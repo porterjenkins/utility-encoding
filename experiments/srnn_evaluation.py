@@ -18,7 +18,8 @@ params = {
     'lr': 5e-4,
     'loss_step': 25,
     'eps': 0.05,
-    'seq_len': 4
+    'seq_len': 4,
+    "eval_k": 5
 }
 
 df = pd.read_csv(cfg.vals['movielens_dir'] + "/preprocessed/ratings.csv")
@@ -73,7 +74,7 @@ output = pd.DataFrame(np.concatenate([x_test_user_flat,
                                       preds.reshape(-1,1)], axis=1), columns = ['user_id', 'y_true', 'pred'])
 
 
-output, rmse, dcg = get_eval_metrics(output, at_k=5)
+output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
 
-print(rmse)
-print(dcg)
+print("rmse: {:.4}".format(rmse))
+print("dcg: {:.4}".format(dcg))
