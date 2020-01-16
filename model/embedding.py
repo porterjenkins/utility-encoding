@@ -7,6 +7,7 @@ class EmbeddingGrad(nn.Module):
 
     def __init__(self, num_embedding, embedding_dim, init_embed=None, use_cuda=False):
         super(EmbeddingGrad, self).__init__()
+        self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.num_embedding = num_embedding
         self.embedding_dim = embedding_dim
 
@@ -15,7 +16,7 @@ class EmbeddingGrad(nn.Module):
 
         if init_embed is not None:
             self.weights.weight = torch.nn.Parameter(init_embed)
-        self.device = torch.device('cuda' if use_cuda else 'cpu')
+
         if use_cuda:
             self = self.cuda()
 

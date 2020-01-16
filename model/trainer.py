@@ -115,11 +115,18 @@ class NeuralUtilityTrainer(object):
             x_batch, y_batch = generator.get_batch(as_tensor=True)
             users, items = self.get_item_user_indices(x_batch)
 
+            users = users.to(self.device)
+            items = items.to(self.device)
+
             # zero gradient
             self.optimizer.zero_grad()
 
             y_hat = self.model.forward(users, items)
             loss = self.loss(y_true=y_batch, y_hat=y_hat)
+
+            if self.n_gpu > 1:
+                loss = loss.mean()
+
             cum_loss += loss
             loss.backward()
             self.optimizer.step()
@@ -187,11 +194,18 @@ class NeuralUtilityTrainer(object):
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
             loss_u.backward(retain_graph=True)
 
+            if self.n_gpu > 1:
+                loss_u = loss_u.mean()
+
             x_grad = self.model.get_input_grad(items)
             x_c_grad = self.model.get_input_grad(x_c_batch)
             x_s_grad = self.model.get_input_grad(x_s_batch)
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
+
+            if self.n_gpu > 1:
+                loss = loss.mean()
+
             cum_loss += loss
             loss.backward()
             self.optimizer.step()
