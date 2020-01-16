@@ -35,12 +35,13 @@ class NeuralUtilityTrainer(object):
         self.use_cuda = use_cuda
         self.n_gpu = torch.cuda.device_count()
 
+        print(self.device)
         if self.use_cuda and self.n_gpu > 1:
             self.model = nn.DataParallel(model)  # enabling data parallelism
         else:
             self.model = model
 
-        self.model.to(self.device)
+        self.model= self.model.to(self.device)
 
         #self.model = self.model.to(self.device)
 
