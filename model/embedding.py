@@ -38,7 +38,7 @@ class EmbeddingGrad(nn.Module):
 
     def forward(self, indices):
         x = self._collect(indices)
-        e = self.weights(x)
+        e = self.weights(x).to(self.device)
         return e
 
     def get_grad(self, indices):
