@@ -13,13 +13,11 @@ class EmbeddingGrad(nn.Module):
         self.device = torch.device('cuda' if use_cuda else 'cpu')
 
         self.input = torch.eye(num_embedding, requires_grad=True).to(self.device)
-        self.weights = nn.Linear(num_embedding, embedding_dim).cuda()
+        self.weights = nn.Linear(num_embedding, embedding_dim).to(self.device)
 
         if init_embed is not None:
             self.weights.weight = torch.nn.Parameter(init_embed)
 
-        if use_cuda:
-            self = self.cuda()
 
     def init_embed(self):
         pass
