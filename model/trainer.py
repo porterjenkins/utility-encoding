@@ -6,6 +6,7 @@ import torch
 import torch.optim as optim
 from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
 from model._loss import utility_loss, mrs_loss
+from torch import nn
 
 
 class NeuralUtilityTrainer(object):
@@ -15,7 +16,6 @@ class NeuralUtilityTrainer(object):
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None):
         self.X_train = X_train
         self.y_train = y_train
-        self.model = model
         self.loss = loss
         self.n_epochs = n_epochs
         self.batch_size = batch_size
@@ -32,6 +32,13 @@ class NeuralUtilityTrainer(object):
         self.model_path = model_path
         self.X_val = X_val
         self.y_val = y_val
+        self.use_cuda = use_cuda
+        self.n_gpu = torch.cuda.device_count()
+
+        if self.use_cuda and self.n_gpu > 1:
+            self.model = nn.DataParallel(model)  # enabling data parallelism
+        else:
+            self.model = model
 
         if model_name is None:
             self.model_name = 'model'
@@ -80,8 +87,17 @@ class NeuralUtilityTrainer(object):
         return val_loss
 
 
+    def print_device_specs(self):
+
+        if self.use_cuda:
+            print("Training on GPU: {} devices".format(self.n_gpu))
+        else:
+            print("Training on CPU")
+
 
     def fit(self):
+
+        self.print_device_specs()
 
         if self.X_val is not None:
             _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
@@ -142,6 +158,8 @@ class NeuralUtilityTrainer(object):
         return x_user_batch, x_batch
 
     def fit_utility_loss(self):
+
+        self.print_device_specs()
 
         if self.X_val is not None:
             _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
