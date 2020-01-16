@@ -39,6 +39,7 @@ class NeuralUtilityTrainer(object):
             self.model = nn.DataParallel(model)  # enabling data parallelism
         else:
             self.model = model"""
+        self.model = model
 
         if model_name is None:
             self.model_name = 'model'
