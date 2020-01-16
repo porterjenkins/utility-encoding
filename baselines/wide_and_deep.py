@@ -96,13 +96,14 @@ class WideAndDeep(nn.Module):
         self.h_dim_size = h_dim_size
         self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.use_cuda = use_cuda
+        self.device = torch.device('cuda' if use_cuda else 'cpu')
 
 
         self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
-        self.fc_1 = nn.Linear(h_dim_size, fc1)
-        self.fc_2 = nn.Linear(fc1, fc2)
+        self.fc_1 = nn.Linear(h_dim_size, fc1).to(self.device)
+        self.fc_2 = nn.Linear(fc1, fc2).to(self.device)
 
-        self.output_layer = nn.Linear(n_items + fc2, 1)
+        self.output_layer = nn.Linear(n_items + fc2, 1).to(self.device)
 
         if use_cuda:
             self = self.cuda()
@@ -125,9 +126,9 @@ class WideAndDeep(nn.Module):
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
         return torch.squeeze(grad_at_idx)
 
+    def forward(self, users, items):
 
-    def _forward_set(self, x):
-        h = self.embedding(x)
+        h = self.embedding(items)
         h = F.relu(self.fc_1(h))
         h = F.relu(self.fc_2(h))
 
@@ -139,12 +140,6 @@ class WideAndDeep(nn.Module):
         if self.use_cuda:
             y_hat = y_hat.to(self.device)
 
-        return y_hat
-
-
-    def forward(self, users, items):
-
-        y_hat = self._forward_set(items)
         return y_hat
 
 
