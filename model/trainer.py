@@ -40,6 +40,8 @@ class NeuralUtilityTrainer(object):
         else:
             self.model = model
 
+        #self.model = self.model.to(self.device)
+
         if model_name is None:
             self.model_name = 'model'
         else:
@@ -117,6 +119,7 @@ class NeuralUtilityTrainer(object):
 
             users = users.to(self.device)
             items = items.to(self.device)
+            y_batch = y_batch.to(self.device)
 
             # zero gradient
             self.optimizer.zero_grad()
