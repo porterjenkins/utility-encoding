@@ -100,10 +100,10 @@ class WideAndDeep(nn.Module):
 
 
         self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
-        self.fc_1 = nn.Linear(h_dim_size, fc1).to(self.device)
-        self.fc_2 = nn.Linear(fc1, fc2).to(self.device)
+        self.fc_1 = nn.Linear(h_dim_size, fc1)
+        self.fc_2 = nn.Linear(fc1, fc2)
 
-        self.output_layer = nn.Linear(n_items + fc2, 1).to(self.device)
+        self.output_layer = nn.Linear(n_items + fc2, 1)
 
         if use_cuda:
             self = self.cuda()

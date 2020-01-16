@@ -40,8 +40,6 @@ class NeuralUtilityTrainer(object):
         else:
             self.model = model"""
 
-        self.model = model
-
         if model_name is None:
             self.model_name = 'model'
         else:
