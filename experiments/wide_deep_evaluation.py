@@ -62,7 +62,7 @@ trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=wide_deep
                                eps=params["eps"], item_rating_map=item_rating_map,
                                user_item_rating_map=user_item_rating_map,
                                c_size=params["c_size"], s_size=params["batch_size"],
-                               n_items=stats["n_items"])
+                               n_items=stats["n_items"], use_cuda=args.cuda)
 
 
 if params['loss'] == 'utility':
