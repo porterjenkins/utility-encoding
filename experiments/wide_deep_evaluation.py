@@ -49,6 +49,9 @@ user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
 item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
 stats = load_dict_output(data_dir, "stats.json")
 
+print("n users: {}".format(stats['n_users']))
+print("n items: {}".format(stats['n_items']))
+
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
 wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32)
