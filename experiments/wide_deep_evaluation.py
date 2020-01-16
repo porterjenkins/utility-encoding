@@ -23,13 +23,14 @@ print(args.cuda)
 
 params = {"loss": 'mse',
                 "h_dim_size": 256,
-                "n_epochs": 10,
+                "n_epochs": 1,
                 "batch_size": 32,
                 "lr": 1e-3,
                 "eps": 0.01,
                 "c_size": 5,
                 "s_size": 5,
-                "loss_step": 1
+                "loss_step": 1,
+                "eval_k": 5
                 }
 
 
@@ -73,12 +74,12 @@ else:
     trainer.fit()
 
 
-preds = wide_deep.forward(X_test.values[:, 1]).flatten().detach().numpy()
+preds = wide_deep.forward(X_test[:, 1]).flatten().detach().numpy()
 
 # compute evaluate metrics
-x_test_user = X_test['user_id'].values
+x_test_user = X_test[:, 0]
 
-output = pd.DataFrame(np.concatenate([x_test_user.reshape(-1,1), preds.reshape(-1,1), y_test.values.reshape(-1,1)], \
+output = pd.DataFrame(np.concatenate([x_test_user.reshape(-1,1), preds.reshape(-1,1), y_test.reshape(-1,1)], \
                                     axis=1), columns = ['user_id', 'pred', 'y_true'])
 
 output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
