@@ -142,20 +142,11 @@ class WideAndDeep(nn.Module):
         return y_hat
 
 
-    def forward(self, x, x_c=None, x_s=None):
+    def forward(self, users, items):
 
-        y_hat = self._forward_set(x)
+        y_hat = self._forward_set(items)
+        return y_hat
 
-        if x_c is not None and x_s is not None:
-
-            y_hat_c = self._forward_set(x_c)
-            y_hat_s = self._forward_set(x_s)
-
-            return y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s)
-
-        else:
-
-            return y_hat
 
     def fit(self, X_train, y_train, batch_size, lr, n_epochs, loss_step, eps):
 
