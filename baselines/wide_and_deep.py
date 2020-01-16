@@ -132,7 +132,7 @@ class WideAndDeep(nn.Module):
         h = F.relu(self.fc_1(h))
         h = F.relu(self.fc_2(h))
 
-        wide = self.embedding._collect(x)
+        wide = self.embedding._collect(items)
         h = torch.cat([h, wide], dim=-1)
 
         y_hat = self.output_layer(h)
