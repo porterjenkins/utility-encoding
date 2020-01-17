@@ -189,7 +189,7 @@ class NeuralUtilityTrainer(object):
 
             users, items, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
 
-            y_batch.to(self.device)
+            y_batch = y_batch.to(self.device)
 
 
             items = items.requires_grad_(True).to(self.device)
