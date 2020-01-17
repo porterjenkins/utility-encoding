@@ -41,9 +41,7 @@ class NeuralUtilityTrainer(object):
         else:
             self.model = model
 
-        self.model= self.model.to(self.device)
-
-        #self.model = self.model.to(self.device)
+        self.model.to(self.device)
 
         if model_name is None:
             self.model_name = 'model'
