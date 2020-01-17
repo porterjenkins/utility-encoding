@@ -22,10 +22,10 @@ args = parser.parse_args()
 
 params = {
             "h_dim_size": 256,
-            "n_epochs": 1,
+            "n_epochs": 20,
             "batch_size": 32,
-            "lr": 1e-5,
-            "eps": 5.0,
+            "lr": 5e-5,
+            "eps": 0.01,
             "c_size": 5,
             "s_size": 5,
             "loss_step": 20,
