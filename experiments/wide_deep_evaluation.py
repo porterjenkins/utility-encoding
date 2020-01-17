@@ -29,7 +29,7 @@ params = {"loss": 'mse',
                 "eps": 0.001,
                 "c_size": 5,
                 "s_size": 5,
-                "loss_step": 1,
+                "loss_step": 20,
                 "eval_k": 5
                 }
 
