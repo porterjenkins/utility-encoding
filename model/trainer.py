@@ -7,14 +7,17 @@ import torch.optim as optim
 from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
 from model._loss import utility_loss, mrs_loss
 from torch import nn
+from sklearn.preprocessing import OneHotEncoder
+import numpy as np
 
 
 class NeuralUtilityTrainer(object):
 
-    def __init__(self, X_train, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
+    def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None):
-        self.X_train = X_train
+        self.users = users
+        self.items = items
         self.y_train = y_train
         self.loss = loss
         self.n_epochs = n_epochs
@@ -60,14 +63,14 @@ class NeuralUtilityTrainer(object):
         return user_ids, item_ids
 
 
-    def get_generator(self, X_train, y_train, use_utility_loss):
+    def get_generator(self, users, items, y_train, use_utility_loss):
         if use_utility_loss:
-            return CoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
+            return CoocurrenceGenerator(users, items, y_train, batch_size=self.batch_size,
                                         user_item_rating_map=self.user_item_rating_map,
                                         item_rating_map=self.item_rating_map, shuffle=True,
                                         c_size=self.c_size, s_size=self.s_size, n_item=self.n_items)
         else:
-            return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
+            return SimpleBatchGenerator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items)
 
     def checkpoint_model(self, suffix):
 
@@ -111,12 +114,11 @@ class NeuralUtilityTrainer(object):
         cum_loss = 0
         prev_loss = -1
 
-        generator = self.get_generator(self.X_train, self.y_train, False)
+        generator = self.get_generator(self.users, self.items, self.y_train, False)
 
         while generator.epoch_cntr < self.n_epochs:
 
-            x_batch, y_batch = generator.get_batch(as_tensor=True)
-            users, items = self.get_item_user_indices(x_batch)
+            users, items, y_batch = generator.get_batch(as_tensor=True)
 
             users = users.to(self.device)
             items = items.to(self.device)
@@ -185,17 +187,37 @@ class NeuralUtilityTrainer(object):
 
         while generator.epoch_cntr < self.n_epochs:
 
-            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
+            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=False)
+
 
 
             users, items = self.get_item_user_indices(x_batch)
 
+
+            enc = OneHotEncoder(categories=[range(self.n_items)], sparse=False)
+
+            items = enc.fit_transform(items.reshape(-1,1))
+            items =  torch.from_numpy(items.astype(np.float32))
+            users = torch.from_numpy(users)
+            y_batch = torch.from_numpy(y_batch)
+
+            items = items.requires_grad_(True)
+
             y_hat = self.model.forward(users, items)
+
+            tmp_loss = y_hat.sum()
+            tmp = torch.autograd.grad(tmp_loss, items)
+
+
             y_hat_c = self.model.forward(users, x_c_batch)
             y_hat_s = self.model.forward(users, x_s_batch)
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
+
+
+
+
             loss_u.backward(retain_graph=True)
 
             if self.n_gpu > 1:

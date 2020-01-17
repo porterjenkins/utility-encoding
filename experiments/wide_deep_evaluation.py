@@ -61,7 +61,8 @@ wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=6
 print("Model intialized")
 print("Beginning Training...")
 
-trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=wide_deep, loss=loss_mse, \
+trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[:, 1:].reshape(-1,1),
+                               y_train=y_train, model=wide_deep, loss=loss_mse,
                                n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                                lr=params["lr"], loss_step_print=params["loss_step"],
                                eps=params["eps"], item_rating_map=item_rating_map,

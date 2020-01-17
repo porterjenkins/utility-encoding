@@ -6,25 +6,34 @@ import pandas as pd
 import numpy as np
 from preprocessing.utils import split_train_test_user, load_dict_output
 import torch
+from sklearn.preprocessing import OneHotEncoder
 
 class Generator(object):
 
-    def __init__(self, X, Y, batch_size, shuffle):
+    def __init__(self, users, items, y, batch_size, shuffle, n_item):
 
-        assert Y.ndim > 1
-        assert X.ndim > 1
+        assert users.ndim > 1
+        assert items.ndim > 1
+        assert len(users) == len(items)
 
-        self.X = X
-        self.Y = Y
+
+        self.users = users
+        self.y = y
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.n_samples = self.X.shape[0]
+        self.n_samples = self.users.shape[0]
         self.curr_idx = 0
         self.epoch_cntr = 0
+        self.n_item = n_item if n_item else items.max()
+        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=False)
+        self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
+
         if self.shuffle:
             self.idx = np.random.permutation(np.arange(self.n_samples))
         else:
             self.idx = np.arange(self.n_samples)
+
+
 
 
     def shuffle_idx(self):
@@ -53,8 +62,8 @@ class Generator(object):
 
 class SimpleBatchGenerator(Generator):
 
-    def __init__(self, X, Y, batch_size, shuffle=True):
-        super().__init__(X, Y, batch_size, shuffle)
+    def __init__(self, users, items, y, batch_size, shuffle=True, n_item=None):
+        super().__init__(users, items, y, batch_size, shuffle, n_item)
 
     def get_batch(self, as_tensor):
         reset = self.check()
@@ -62,15 +71,17 @@ class SimpleBatchGenerator(Generator):
             self.reset()
 
         batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
-        x_batch = self.X[batch_idx, :]
-        y_batch = self.Y[batch_idx, :]
+        items = self.items[batch_idx, :]
+        users = self.users[batch_idx, :]
+        y_batch = self.y[batch_idx, :]
         self.update_curr_idx()
 
         if as_tensor:
-            x_batch = torch.from_numpy(x_batch)
+            items = torch.from_numpy(items)
+            users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
 
-        return x_batch, y_batch
+        return users, items, y_batch
 
 
 
@@ -81,17 +92,14 @@ class CoocurrenceGenerator(Generator):
     """
 
 
-    def __init__(self, X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
-        super().__init__(X, Y, batch_size, shuffle)
+    def __init__(self,users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
+        super().__init__(users, items, y, batch_size, shuffle, n_item)
         self.user_item_rating_map = user_item_rating_map
         self.item_rating_map = item_rating_map
         self.c_size = c_size
         self.s_size = s_size
 
-        if n_item is None:
-            self.n_item = int(X[:, 1].max())
-        else:
-            self.n_item = n_item
+
 
     def get_complement_set(self, x_batch):
         X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int64)
