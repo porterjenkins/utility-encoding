@@ -278,10 +278,10 @@ class NeuralUtilityTrainer(object):
             test['items'] = test['items'].to(self.device)
 
             preds_batch = self.model.forward(test['users'], test['items']).to(self.device)
-            preds.append(preds_batch)
+            #preds.append(preds_batch)
 
-        preds = torch.cat(preds, dim=0)
+        #preds = torch.cat(preds, dim=0)
 
 
-        return preds
+        return preds_batch
 
