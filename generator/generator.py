@@ -7,6 +7,7 @@ import numpy as np
 from preprocessing.utils import split_train_test_user, load_dict_output
 import torch
 from sklearn.preprocessing import OneHotEncoder
+from scipy.sparse import coo_matrix
 
 class Generator(object):
 
@@ -25,7 +26,7 @@ class Generator(object):
         self.curr_idx = 0
         self.epoch_cntr = 0
         self.n_item = n_item if n_item else items.max()
-        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=False)
+        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
         self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
 
         if self.shuffle:
@@ -59,6 +60,20 @@ class Generator(object):
     def reset_epoch(self):
         self.epoch_cntr = 0
 
+    def get_sparse_tensor(self, sparse_mtx):
+
+        coo = coo_matrix(sparse_mtx)
+        values = coo.data
+        indices = np.vstack((coo.row, coo.col))
+
+        i = torch.LongTensor(indices)
+        v = torch.FloatTensor(values)
+        shape = coo.shape
+
+        return torch.sparse.FloatTensor(i, v, torch.Size(shape))
+
+
+
 
 class SimpleBatchGenerator(Generator):
 
@@ -77,7 +92,8 @@ class SimpleBatchGenerator(Generator):
         self.update_curr_idx()
 
         if as_tensor:
-            items = torch.from_numpy(items)
+            #items = torch.from_numpy(items)
+            items = self.get_sparse_tensor(items)
             users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
 
@@ -155,23 +171,25 @@ class CoocurrenceGenerator(Generator):
             self.reset()
 
         batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
-        x_batch = self.X[batch_idx, :]
-        y_batch = self.Y[batch_idx, :]
+        items = self.items[batch_idx, :]
+        users = self.users[batch_idx, :]
+        y_batch = self.y[batch_idx, :]
 
-        X_c, y_c = self.get_complement_set(x_batch)
+        X_c, y_c = self.get_complement_set(items)
         X_s, y_s = self.get_supp_set(x_batch)
 
         self.update_curr_idx()
 
         if as_tensor:
-            x_batch = torch.from_numpy(x_batch)
+            items = torch.from_numpy(items)
+            users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
             X_c = torch.from_numpy(X_c)
             X_s = torch.from_numpy(X_s)
             y_c = torch.from_numpy(y_c)
             y_s = torch.from_numpy(y_s)
 
-        return x_batch, y_batch, X_c, y_c, X_s, y_s
+        return items, users, y_batch, X_c, y_c, X_s, y_s
 
 
 class SeqCoocurrenceGenerator(CoocurrenceGenerator):

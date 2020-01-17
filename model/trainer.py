@@ -183,15 +183,12 @@ class NeuralUtilityTrainer(object):
         cum_loss = 0
         prev_loss = -1
 
-        generator = self.get_generator(self.X_train, self.y_train, True)
+        generator = self.get_generator(self.users, self.items, self.y_train, True)
 
         while generator.epoch_cntr < self.n_epochs:
 
-            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=False)
+            users, items, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
 
-
-
-            users, items = self.get_item_user_indices(x_batch)
 
 
             enc = OneHotEncoder(categories=[range(self.n_items)], sparse=False)
