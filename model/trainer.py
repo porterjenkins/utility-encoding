@@ -261,7 +261,7 @@ class NeuralUtilityTrainer(object):
 
     def predict(self, users, items, y=None, batch_size=32):
 
-        print("Getting predictions on device: {}".format(self.device))
+        print("Getting predictions on device: {} - batch size: {}".format(self.device, batch_size))
 
         self.generator.update_data(users=users, items=items,
                                    y=y, shuffle=False,

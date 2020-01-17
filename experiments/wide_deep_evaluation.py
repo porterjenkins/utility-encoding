@@ -78,12 +78,25 @@ else:
     print("mse loss")
     trainer.fit()
 
+
+def get_test_batch_size(n):
+
+    b = 1000
+
+    while n % b > 0:
+        b -= 1
+
+    return b
+
+
+
 users_test = X_test[:, 0].reshape(-1,1)
 items_test = X_test[:, 1].reshape(-1,1)
 y_test = y_test.reshape(-1,1)
+test_batch_size = get_test_batch_size(users_test.shape[0])
 
 preds = trainer.predict(users=users_test, items=items_test, y=y_test,
-                        batch_size=1).flatten().detach().numpy().reshape(-1,1)
+                        batch_size=test_batch_size).flatten().detach().numpy().reshape(-1,1)
 
 
 output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
