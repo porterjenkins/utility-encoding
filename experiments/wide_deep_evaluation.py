@@ -82,7 +82,7 @@ else:
 trainer.generator.update_data(users=X_test[:, 0].reshape(-1,1),
                               items=X_test[:, 1:].reshape(-1,1),
                               y=y_test, shuffle=False,
-                              batch_size=X_test.shape[0])
+                              batch_size=32)
 
 
 test = trainer.generator.get_batch(as_tensor=True)
@@ -90,7 +90,7 @@ test = trainer.generator.get_batch(as_tensor=True)
 preds = wide_deep.forward(test['users'], test['items']).flatten().detach().numpy()
 
 
-output = pd.DataFrame(np.concatenate((test['users'].reshape(-1,1), preds.reshape(-1,1), y_test.reshape(-1,1)),
+output = pd.DataFrame(np.concatenate((test['users'].reshape(-1,1), preds.reshape(-1,1), test['y'].reshape(-1,1)),
                                     axis=1), columns = ['user_id', 'pred', 'y_true'])
 
 output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
