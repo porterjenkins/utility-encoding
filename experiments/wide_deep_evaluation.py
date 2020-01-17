@@ -81,7 +81,7 @@ else:
 
 def get_test_batch_size(n):
 
-    b = 300
+    b = 50
 
     while n % b > 0:
         b -= 1
