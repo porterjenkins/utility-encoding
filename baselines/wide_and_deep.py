@@ -105,8 +105,8 @@ class WideAndDeep(nn.Module):
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
 
-        self.output_layer = nn.Linear(fc2, 1)
-        #self.output_layer = nn.Linear(n_items + fc2, 1)
+        #self.output_layer = nn.Linear(fc2, 1)
+        self.output_layer = nn.Linear(n_items + fc2, 1)
 
         if use_cuda:
             self = self.cuda()
@@ -118,9 +118,7 @@ class WideAndDeep(nn.Module):
         h = self.embedding(items)
         h = F.relu(self.fc_1(h))
         h = F.relu(self.fc_2(h))
-
-        #wide = self.embedding._collect(items)
-        #h = torch.cat([h, items], dim=-1)
+        h = torch.cat([h, items], dim=-1)
 
         y_hat = self.output_layer(h)
 
