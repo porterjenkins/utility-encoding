@@ -136,6 +136,7 @@ class NeuralUtilityTrainer(object):
             cum_loss += loss
             loss.backward()
             self.optimizer.step()
+            loss = loss.detach()
 
             if iter % self.loss_step == 0:
                 if iter == 0:
@@ -227,6 +228,7 @@ class NeuralUtilityTrainer(object):
             cum_loss += loss
             loss.backward()
             self.optimizer.step()
+            loss = loss.detach()
 
             if iter % self.loss_step == 0:
                 if iter == 0:
