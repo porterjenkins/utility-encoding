@@ -23,7 +23,6 @@ class EmbeddingGrad(nn.Module):
         pass
 
     def _collect(self, indices):
-        print('_collect n dim: {}'.format(indices.ndim))
         if indices.ndim == 1:
             x = self.input[indices]
         else:
