@@ -41,6 +41,8 @@ class Generator(object):
         self.batch_size = batch_size
         self.idx = self._get_index()
         self.n_samples = self.users.shape[0]
+        self.curr_idx = 0
+        self.epoch_cntr = 0
 
     def _get_index(self):
         if self.shuffle:

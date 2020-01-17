@@ -257,3 +257,28 @@ class NeuralUtilityTrainer(object):
             iter += 1
 
         return loss_arr
+
+
+    def predict(self, users, items, y=None, batch_size=32):
+
+        print("Getting predictions on device: {}".format(self.device))
+
+        self.generator.update_data(users=users, items=items,
+                                   y=y, shuffle=False,
+                                   batch_size=batch_size)
+
+        preds = list()
+
+        while self.generator.epoch_cntr < 1:
+
+
+            test = self.generator.get_batch(as_tensor=True)
+
+            preds_batch = self.model.forward(test['users'], test['items'])
+            preds.append(preds_batch)
+
+        preds = torch.cat(preds, dim=0)
+
+
+        return preds
+

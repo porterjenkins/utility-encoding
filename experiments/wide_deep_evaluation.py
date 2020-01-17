@@ -22,10 +22,10 @@ args = parser.parse_args()
 
 params = {
             "h_dim_size": 256,
-            "n_epochs": 20,
+            "n_epochs": 10,
             "batch_size": 32,
             "lr": 5e-5,
-            "eps": 0.01,
+            "eps": .1,
             "c_size": 5,
             "s_size": 5,
             "loss_step": 20,
@@ -78,20 +78,16 @@ else:
     print("mse loss")
     trainer.fit()
 
+users_test = X_test[:, 0].reshape(-1,1)
+items_test = X_test[:, 1].reshape(-1,1)
+y_test = y_test.reshape(-1,1)
 
-trainer.generator.update_data(users=X_test[:, 0].reshape(-1,1),
-                              items=X_test[:, 1:].reshape(-1,1),
-                              y=y_test, shuffle=False,
-                              batch_size=32)
-
-
-test = trainer.generator.get_batch(as_tensor=True)
-
-preds = wide_deep.forward(test['users'], test['items']).flatten().detach().numpy()
+preds = trainer.predict(users=users_test, items=items_test, y=y_test,
+                        batch_size=1).flatten().detach().numpy().reshape(-1,1)
 
 
-output = pd.DataFrame(np.concatenate((test['users'].reshape(-1,1), preds.reshape(-1,1), test['y'].reshape(-1,1)),
-                                    axis=1), columns = ['user_id', 'pred', 'y_true'])
+output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
+                      columns = ['user_id', 'pred', 'y_true'])
 
 output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
 
