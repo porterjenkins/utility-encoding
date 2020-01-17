@@ -70,7 +70,7 @@ class NeuralUtilityTrainer(object):
                                         item_rating_map=self.item_rating_map, shuffle=True,
                                         c_size=self.c_size, s_size=self.s_size, n_item=self.n_items)
         else:
-            return Generator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items)
+            return Generator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items, shuffle=True)
 
     def checkpoint_model(self, suffix):
 

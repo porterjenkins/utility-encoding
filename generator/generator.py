@@ -26,7 +26,7 @@ class Generator(object):
         self.curr_idx = 0
         self.epoch_cntr = 0
         self.n_item = n_item if n_item else items.max()
-        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=False)
+        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
         self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
 
         if self.shuffle:
@@ -84,7 +84,7 @@ class Generator(object):
         self.update_curr_idx()
 
         if as_tensor:
-            items = torch.from_numpy(items)
+            items = torch.from_numpy(items.todense())
             #items = self.get_sparse_tensor(items)
             users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
