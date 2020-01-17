@@ -266,9 +266,10 @@ class NeuralUtilityTrainer(object):
         self.generator.update_data(users=users, items=items,
                                    y=y, shuffle=False,
                                    batch_size=batch_size)
-
+        n = users.shape[0]
         preds = list()
 
+        cntr = 0
         while self.generator.epoch_cntr < 1:
 
 
@@ -277,11 +278,16 @@ class NeuralUtilityTrainer(object):
             test['users'] = test['users'].to(self.device)
             test['items'] = test['items'].to(self.device)
 
-            preds_batch = self.model.forward(test['users'], test['items']).to(self.device)
-            #preds.append(preds_batch)
+            preds_batch = self.model.forward(test['users'], test['items']).detach().data.numpy()
+            preds.append(preds_batch)
 
-        #preds = torch.cat(preds, dim=0)
+            progress = 100*(cntr / n)
+            print("inference progress: {:.2f}".format(progress), end='\r')
+
+            cntr += batch_size
+
+        preds = np.concatenate(preds, axis=0)
 
 
-        return preds_batch
+        return preds
 

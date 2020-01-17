@@ -96,7 +96,7 @@ y_test = y_test.reshape(-1,1)
 test_batch_size = get_test_batch_size(users_test.shape[0])
 
 preds = trainer.predict(users=users_test, items=items_test, y=y_test,
-                        batch_size=test_batch_size).flatten().detach().numpy().reshape(-1,1)
+                        batch_size=test_batch_size).reshape(-1,1)
 
 
 output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
