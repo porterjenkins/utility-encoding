@@ -54,7 +54,8 @@ print("n items: {}".format(stats['n_items']))
 
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32, use_cuda=True)
+wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32,
+                        use_cuda=args.cuda)
 
 
 print("Model intialized")

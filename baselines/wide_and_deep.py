@@ -123,9 +123,6 @@ class WideAndDeep(nn.Module):
 
         y_hat = self.output_layer(h)
 
-        if self.use_cuda:
-            y_hat = y_hat.to(self.device)
-
         return y_hat
 
     def get_input_grad(self, indices):

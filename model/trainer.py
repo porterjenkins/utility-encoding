@@ -125,7 +125,7 @@ class NeuralUtilityTrainer(object):
             # zero gradient
             self.optimizer.zero_grad()
 
-            y_hat = self.model.forward(users, items)
+            y_hat = self.model.forward(users, items).to(self.device)
             loss = self.loss(y_true=y_batch, y_hat=y_hat)
 
             if self.n_gpu > 1:
