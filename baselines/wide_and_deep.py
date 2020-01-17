@@ -112,7 +112,7 @@ class WideAndDeep(nn.Module):
 
     def forward(self, users, items):
 
-        h = self.embedding(items)
+        h = self.embedding.forward(items)
         h = F.relu(self.fc_1(h))
         h = F.relu(self.fc_2(h))
 
