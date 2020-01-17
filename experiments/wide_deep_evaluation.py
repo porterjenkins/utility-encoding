@@ -21,7 +21,7 @@ print(args.cuda)
 
 
 
-params = {"loss": 'mse',
+params = {"loss": 'utility',
                 "h_dim_size": 256,
                 "n_epochs": 1,
                 "batch_size": 32,

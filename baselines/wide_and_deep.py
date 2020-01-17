@@ -99,8 +99,8 @@ class WideAndDeep(nn.Module):
         self.device = torch.device('cuda' if use_cuda else 'cpu')
 
 
-        self.embedding = nn.Embedding(n_items, h_dim_size)
-        #self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
+        #self.embedding = nn.Embedding(n_items, h_dim_size).requires_grad_(True)
+        self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
 
@@ -127,6 +127,27 @@ class WideAndDeep(nn.Module):
             y_hat = y_hat.to(self.device)
 
         return y_hat
+
+    def get_input_grad(self, indices):
+        """
+        Get gradients with respect to inputs
+        :param indices: (ndarray) array of item indices
+        :return: (tensor) tensor of gradients with respect to inputs
+        """
+        if indices.ndim == 1:
+            indices = indices.reshape(-1, 1)
+
+
+        dims = [d for d in indices.shape] + [1]
+        idx_tensor = torch.LongTensor(indices).reshape(dims)
+
+        if self.use_embedding:
+            grad = self.embedding.get_grad(indices)
+        else:
+            grad = self.backbone.embedding.get_grad(indices)
+
+        grad_at_idx = torch.gather(grad, -1, idx_tensor)
+        return torch.squeeze(grad_at_idx)
 
 
     def fit(self, X_train, y_train, batch_size, lr, n_epochs, loss_step, eps):

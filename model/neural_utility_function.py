@@ -46,6 +46,8 @@ class NeuralUtility(nn.Module):
         grad_at_idx = torch.gather(grad, -1, idx_tensor)
         return torch.squeeze(grad_at_idx)
 
+
+
     def forward(self, users, items):
 
         if self.use_embedding:
