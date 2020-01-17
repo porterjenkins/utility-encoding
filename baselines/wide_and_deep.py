@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
 from model.embedding import EmbeddingGrad
-from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
+from generator.generator import CoocurrenceGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 import pandas as pd
 from model._loss import loss_mse, utility_loss, mrs_loss

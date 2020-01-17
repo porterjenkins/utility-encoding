@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.optim as optim
-from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
+from generator.generator import CoocurrenceGenerator, Generator
 from model._loss import utility_loss, mrs_loss
 from torch import nn
 from sklearn.preprocessing import OneHotEncoder
@@ -70,7 +70,7 @@ class NeuralUtilityTrainer(object):
                                         item_rating_map=self.item_rating_map, shuffle=True,
                                         c_size=self.c_size, s_size=self.s_size, n_item=self.n_items)
         else:
-            return SimpleBatchGenerator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items)
+            return Generator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items)
 
     def checkpoint_model(self, suffix):
 
@@ -190,13 +190,6 @@ class NeuralUtilityTrainer(object):
             users, items, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
 
 
-
-            enc = OneHotEncoder(categories=[range(self.n_items)], sparse=False)
-
-            items = enc.fit_transform(items.reshape(-1,1))
-            items =  torch.from_numpy(items.astype(np.float32))
-            users = torch.from_numpy(users)
-            y_batch = torch.from_numpy(y_batch)
 
             items = items.requires_grad_(True)
 

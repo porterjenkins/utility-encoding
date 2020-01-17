@@ -21,7 +21,7 @@ print(args.cuda)
 
 
 
-params = {"loss": 'mse',
+params = {"loss": 'utility',
                 "h_dim_size": 256,
                 "n_epochs": 20,
                 "batch_size": 32,
@@ -67,7 +67,7 @@ trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[
                                lr=params["lr"], loss_step_print=params["loss_step"],
                                eps=params["eps"], item_rating_map=item_rating_map,
                                user_item_rating_map=user_item_rating_map,
-                               c_size=params["c_size"], s_size=params["batch_size"],
+                               c_size=params["c_size"], s_size=params["s_size"],
                                n_items=stats["n_items"], use_cuda=args.cuda)
 
 

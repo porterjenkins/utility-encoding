@@ -26,7 +26,7 @@ class Generator(object):
         self.curr_idx = 0
         self.epoch_cntr = 0
         self.n_item = n_item if n_item else items.max()
-        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
+        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=False)
         self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
 
         if self.shuffle:
@@ -72,14 +72,6 @@ class Generator(object):
 
         return torch.sparse.FloatTensor(i, v, torch.Size(shape))
 
-
-
-
-class SimpleBatchGenerator(Generator):
-
-    def __init__(self, users, items, y, batch_size, shuffle=True, n_item=None):
-        super().__init__(users, items, y, batch_size, shuffle, n_item)
-
     def get_batch(self, as_tensor):
         reset = self.check()
         if reset:
@@ -92,8 +84,8 @@ class SimpleBatchGenerator(Generator):
         self.update_curr_idx()
 
         if as_tensor:
-            #items = torch.from_numpy(items)
-            items = self.get_sparse_tensor(items)
+            items = torch.from_numpy(items)
+            #items = self.get_sparse_tensor(items)
             users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
 
@@ -117,35 +109,33 @@ class CoocurrenceGenerator(Generator):
 
 
 
-    def get_complement_set(self, x_batch):
-        X_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.int64)
-        y_c = np.zeros((x_batch.shape[0], self.c_size), dtype=np.float64)
+    def get_complement_set(self, users, items):
+        X_c = np.zeros((items.shape[0], items.shape[1], self.c_size), dtype=np.int64)
+        y_c = np.zeros((users.shape[0], self.c_size), dtype=np.float64)
 
-        users = x_batch[:, 0]
 
         for i, user_id in enumerate(users):
-            item_ratings = self.user_item_rating_map[user_id]
-            items = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
+            item_ratings = self.user_item_rating_map[user_id[0]]
+            item_sampled = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
 
-            X_c[i, :] = items
 
-            for j, item in enumerate(items):
+            for j, item in enumerate(item_sampled):
+                X_c[i, int(item), j] = 1
                 y_c[i, j] = item_ratings[item]
 
         return X_c, y_c
 
-    def get_supp_set(self, x_batch):
-        X_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.int64)
-        y_s = np.zeros((x_batch.shape[0], self.s_size), dtype=np.float64)
+    def get_supp_set(self, users, items):
 
-        users = x_batch[:, 0]
+        X_s = np.zeros((items.shape[0], items.shape[1], self.s_size), dtype=np.int64)
+        y_s = np.zeros((users.shape[0], self.s_size), dtype=np.float64)
+
 
         for i, user_id in enumerate(users):
-            user_items = list(self.user_item_rating_map[user_id].keys())
+            user_items = list(self.user_item_rating_map[user_id[0]].keys())
 
             supp_cntr = 0
             s_set = np.zeros(self.s_size, dtype=np.int64)
-            y_s_set = np.zeros(self.s_size, dtype=np.float32)
 
             while supp_cntr < self.s_size:
                 item = np.random.randint(0, self.n_item, 1)[0]
@@ -154,31 +144,23 @@ class CoocurrenceGenerator(Generator):
 
                     n_ratings = len(self.item_rating_map[item])
                     ratings_idx = np.random.randint(0, n_ratings, 1)[0]
-                    y_s_set[supp_cntr] = self.item_rating_map[item][ratings_idx]
+
+
+                    X_s[i, item, supp_cntr] = 1
+                    y_s[i, supp_cntr] = self.item_rating_map[item][ratings_idx]
 
                     supp_cntr +=1
 
-
-            X_s[i, :] = s_set
-            y_s[i, :] = y_s_set
 
         return X_s, y_s
 
 
     def get_batch(self, as_tensor=False):
-        reset = self.check()
-        if reset:
-            self.reset()
 
-        batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
-        items = self.items[batch_idx, :]
-        users = self.users[batch_idx, :]
-        y_batch = self.y[batch_idx, :]
+        users, items, y_batch = super(CoocurrenceGenerator, self).get_batch(False)
 
-        X_c, y_c = self.get_complement_set(items)
-        X_s, y_s = self.get_supp_set(x_batch)
-
-        self.update_curr_idx()
+        X_c, y_c = self.get_complement_set(users, items)
+        X_s, y_s = self.get_supp_set(users, items)
 
         if as_tensor:
             items = torch.from_numpy(items)
@@ -189,7 +171,7 @@ class CoocurrenceGenerator(Generator):
             y_c = torch.from_numpy(y_c)
             y_s = torch.from_numpy(y_s)
 
-        return items, users, y_batch, X_c, y_c, X_s, y_s
+        return users, items, y_batch, X_c, y_c, X_s, y_s
 
 
 class SeqCoocurrenceGenerator(CoocurrenceGenerator):
