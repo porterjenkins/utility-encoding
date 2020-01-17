@@ -25,10 +25,10 @@ params = {
             "n_epochs": 10,
             "batch_size": 32,
             "lr": 5e-5,
-            "eps": .1,
+            "eps": .005,
             "c_size": 5,
             "s_size": 5,
-            "loss_step": 20,
+            "loss_step": 50,
             "eval_k": 5,
             "loss": args.loss
         }
