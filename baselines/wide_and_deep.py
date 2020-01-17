@@ -99,11 +99,13 @@ class WideAndDeep(nn.Module):
         self.device = torch.device('cuda' if use_cuda else 'cpu')
 
 
-        self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
+        self.embedding = nn.Embedding(n_items, h_dim_size)
+        #self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
 
-        self.output_layer = nn.Linear(n_items + fc2, 1)
+        #self.output_layer = nn.Linear(n_items + fc2, 1)
+        self.output_layer = nn.Linear(fc2, 1)
 
         if use_cuda:
             self = self.cuda()
