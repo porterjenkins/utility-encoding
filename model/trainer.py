@@ -4,17 +4,20 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.optim as optim
-from generator.generator import CoocurrenceGenerator, SimpleBatchGenerator
+from generator.generator import CoocurrenceGenerator, Generator
 from model._loss import utility_loss, mrs_loss
 from torch import nn
+from sklearn.preprocessing import OneHotEncoder
+import numpy as np
 
 
 class NeuralUtilityTrainer(object):
 
-    def __init__(self, X_train, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
+    def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None):
-        self.X_train = X_train
+        self.users = users
+        self.items = items
         self.y_train = y_train
         self.loss = loss
         self.n_epochs = n_epochs
@@ -35,10 +38,13 @@ class NeuralUtilityTrainer(object):
         self.use_cuda = use_cuda
         self.n_gpu = torch.cuda.device_count()
 
+        print(self.device)
         if self.use_cuda and self.n_gpu > 1:
             self.model = nn.DataParallel(model)  # enabling data parallelism
         else:
             self.model = model
+
+        self.model.to(self.device)
 
         if model_name is None:
             self.model_name = 'model'
@@ -57,14 +63,14 @@ class NeuralUtilityTrainer(object):
         return user_ids, item_ids
 
 
-    def get_generator(self, X_train, y_train, use_utility_loss):
+    def get_generator(self, users, items, y_train, use_utility_loss):
         if use_utility_loss:
-            return CoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
+            return CoocurrenceGenerator(users, items, y_train, batch_size=self.batch_size,
                                         user_item_rating_map=self.user_item_rating_map,
                                         item_rating_map=self.item_rating_map, shuffle=True,
                                         c_size=self.c_size, s_size=self.s_size, n_item=self.n_items)
         else:
-            return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
+            return Generator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items, shuffle=True)
 
     def checkpoint_model(self, suffix):
 
@@ -108,28 +114,29 @@ class NeuralUtilityTrainer(object):
         cum_loss = 0
         prev_loss = -1
 
-        generator = self.get_generator(self.X_train, self.y_train, False)
+        generator = self.get_generator(self.users, self.items, self.y_train, False)
 
         while generator.epoch_cntr < self.n_epochs:
 
-            x_batch, y_batch = generator.get_batch(as_tensor=True)
-            users, items = self.get_item_user_indices(x_batch)
+            users, items, y_batch = generator.get_batch(as_tensor=True)
 
             users = users.to(self.device)
             items = items.to(self.device)
+            y_batch = y_batch.to(self.device)
 
             # zero gradient
             self.optimizer.zero_grad()
 
-            y_hat = self.model.forward(users, items)
+            y_hat = self.model.forward(users, items).to(self.device)
             loss = self.loss(y_true=y_batch, y_hat=y_hat)
 
             if self.n_gpu > 1:
                 loss = loss.mean()
 
-            cum_loss += loss
             loss.backward()
             self.optimizer.step()
+            loss = loss.detach()
+            cum_loss += loss
 
             if iter % self.loss_step == 0:
                 if iter == 0:
@@ -177,38 +184,52 @@ class NeuralUtilityTrainer(object):
         cum_loss = 0
         prev_loss = -1
 
-        generator = self.get_generator(self.X_train, self.y_train, True)
+        generator = self.get_generator(self.users, self.items, self.y_train, True)
 
         while generator.epoch_cntr < self.n_epochs:
 
-            x_batch, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
+            users, items, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
+
+            y_batch = y_batch.to(self.device)
+            y_c = y_c.to(self.device)
+            y_s = y_s.to(self.device)
 
 
-            users, items = self.get_item_user_indices(x_batch)
+            items = items.requires_grad_(True).to(self.device)
+            x_c_batch = x_c_batch.requires_grad_(True).to(self.device)
+            x_s_batch = x_s_batch.requires_grad_(True).to(self.device)
 
-            y_hat = self.model.forward(users, items)
-            y_hat_c = self.model.forward(users, x_c_batch)
-            y_hat_s = self.model.forward(users, x_s_batch)
+            y_hat = self.model.forward(users, items).to(self.device)
+            y_hat_c = self.model.forward(users, x_c_batch).to(self.device)
+            y_hat_s = self.model.forward(users, x_s_batch).to(self.device)
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
-            loss_u.backward(retain_graph=True)
+
 
             if self.n_gpu > 1:
                 loss_u = loss_u.mean()
 
-            x_grad = self.model.get_input_grad(items)
-            x_c_grad = self.model.get_input_grad(x_c_batch)
-            x_s_grad = self.model.get_input_grad(x_s_batch)
+            x_grad = torch.autograd.grad(loss_u, items, retain_graph=True)[0]
+            x_c_grad = torch.autograd.grad(loss_u, x_c_batch, retain_graph=True)[0]
+            x_s_grad = torch.autograd.grad(loss_u, x_s_batch, retain_graph=True)[0]
+
+            x_grad = torch.sum(torch.mul(x_grad, items), dim=1)
+            x_c_grad = torch.sum(torch.mul(x_c_grad, x_c_batch), -1)
+            x_s_grad = torch.sum(torch.mul(x_s_grad, x_s_batch), -1)
+
+
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
 
             if self.n_gpu > 1:
                 loss = loss.mean()
 
-            cum_loss += loss
+
             loss.backward()
             self.optimizer.step()
+            loss = loss.detach()
+            cum_loss += loss
 
             if iter % self.loss_step == 0:
                 if iter == 0:

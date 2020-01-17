@@ -23,13 +23,13 @@ print(args.cuda)
 
 params = {"loss": 'mse',
                 "h_dim_size": 256,
-                "n_epochs": 1,
+                "n_epochs": 20,
                 "batch_size": 32,
-                "lr": 1e-3,
-                "eps": 0.01,
+                "lr": 1e-5,
+                "eps": 0.001,
                 "c_size": 5,
                 "s_size": 5,
-                "loss_step": 1,
+                "loss_step": 20,
                 "eval_k": 5
                 }
 
@@ -39,7 +39,7 @@ data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 df = pd.read_csv(data_dir + "ratings.csv")
 
 X = df[['user_id', 'item_id']].values.astype(np.int64)
-y = df['rating'].values.reshape(-1, 1)
+y = df['rating'].values.reshape(-1, 1).astype(np.float32)
 
 del df
 
@@ -54,18 +54,20 @@ print("n items: {}".format(stats['n_items']))
 
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32)
+wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32,
+                        use_cuda=args.cuda)
 
 
 print("Model intialized")
 print("Beginning Training...")
 
-trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=wide_deep, loss=loss_mse, \
+trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[:, 1:].reshape(-1,1),
+                               y_train=y_train, model=wide_deep, loss=loss_mse,
                                n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                                lr=params["lr"], loss_step_print=params["loss_step"],
                                eps=params["eps"], item_rating_map=item_rating_map,
                                user_item_rating_map=user_item_rating_map,
-                               c_size=params["c_size"], s_size=params["batch_size"],
+                               c_size=params["c_size"], s_size=params["s_size"],
                                n_items=stats["n_items"], use_cuda=args.cuda)
 
 
