@@ -23,10 +23,10 @@ print(args.cuda)
 
 params = {"loss": 'mse',
                 "h_dim_size": 256,
-                "n_epochs": 1,
+                "n_epochs": 20,
                 "batch_size": 32,
                 "lr": 1e-3,
-                "eps": 0.01,
+                "eps": 0.001,
                 "c_size": 5,
                 "s_size": 5,
                 "loss_step": 1,
