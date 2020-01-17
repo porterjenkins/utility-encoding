@@ -163,7 +163,7 @@ class CoocurrenceGenerator(Generator):
         X_s, y_s = self.get_supp_set(users, items)
 
         if as_tensor:
-            items = torch.from_numpy(items)
+            items = torch.from_numpy(items.todense())
             users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
             X_c = torch.from_numpy(X_c)
