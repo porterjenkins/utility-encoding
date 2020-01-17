@@ -273,6 +273,9 @@ class NeuralUtilityTrainer(object):
 
 
             test = self.generator.get_batch(as_tensor=True)
+            
+            test['users'] = test['users'].to(self.device)
+            test['items'] = test['items'].to(self.device)
 
             preds_batch = self.model.forward(test['users'], test['items'])
             preds.append(preds_batch)
