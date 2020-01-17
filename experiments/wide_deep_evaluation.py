@@ -39,7 +39,7 @@ data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
 df = pd.read_csv(data_dir + "ratings.csv")
 
 X = df[['user_id', 'item_id']].values.astype(np.int64)
-y = df['rating'].values.reshape(-1, 1)
+y = df['rating'].values.reshape(-1, 1).astype(np.float32)
 
 del df
 

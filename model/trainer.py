@@ -192,13 +192,10 @@ class NeuralUtilityTrainer(object):
 
 
             items = items.requires_grad_(True)
+            x_c_batch = x_c_batch.requires_grad_(True)
+            x_s_batch = x_s_batch.requires_grad_(True)
 
             y_hat = self.model.forward(users, items)
-
-            tmp_loss = y_hat.sum()
-            tmp = torch.autograd.grad(tmp_loss, items)
-
-
             y_hat_c = self.model.forward(users, x_c_batch)
             y_hat_s = self.model.forward(users, x_s_batch)
 
@@ -206,16 +203,18 @@ class NeuralUtilityTrainer(object):
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
 
 
-
-
-            loss_u.backward(retain_graph=True)
-
             if self.n_gpu > 1:
                 loss_u = loss_u.mean()
 
-            x_grad = self.model.get_input_grad(items)
-            x_c_grad = self.model.get_input_grad(x_c_batch)
-            x_s_grad = self.model.get_input_grad(x_s_batch)
+            x_grad = torch.autograd.grad(loss_u, items, retain_graph=True)[0]
+            x_c_grad = torch.autograd.grad(loss_u, x_c_batch, retain_graph=True)[0]
+            x_s_grad = torch.autograd.grad(loss_u, x_s_batch, retain_graph=True)[0]
+
+            x_grad = torch.sum(torch.mul(x_grad, items), dim=1)
+            x_c_grad = torch.sum(torch.mul(x_c_grad, x_c_batch), -1)
+            x_s_grad = torch.sum(torch.mul(x_s_grad, x_s_batch), -1)
+
+
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
 

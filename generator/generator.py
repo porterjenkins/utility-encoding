@@ -110,8 +110,8 @@ class CoocurrenceGenerator(Generator):
 
 
     def get_complement_set(self, users, items):
-        X_c = np.zeros((items.shape[0], items.shape[1], self.c_size), dtype=np.int64)
-        y_c = np.zeros((users.shape[0], self.c_size), dtype=np.float64)
+        X_c = np.zeros((items.shape[0], self.c_size, items.shape[1]), dtype=np.float32)
+        y_c = np.zeros((users.shape[0], self.c_size), dtype=np.float32)
 
 
         for i, user_id in enumerate(users):
@@ -120,15 +120,15 @@ class CoocurrenceGenerator(Generator):
 
 
             for j, item in enumerate(item_sampled):
-                X_c[i, int(item), j] = 1
+                X_c[i, j, int(item)] = 1
                 y_c[i, j] = item_ratings[item]
 
         return X_c, y_c
 
     def get_supp_set(self, users, items):
 
-        X_s = np.zeros((items.shape[0], items.shape[1], self.s_size), dtype=np.int64)
-        y_s = np.zeros((users.shape[0], self.s_size), dtype=np.float64)
+        X_s = np.zeros((items.shape[0], self.s_size, items.shape[1]), dtype=np.float32)
+        y_s = np.zeros((users.shape[0], self.s_size), dtype=np.float32)
 
 
         for i, user_id in enumerate(users):
@@ -146,7 +146,7 @@ class CoocurrenceGenerator(Generator):
                     ratings_idx = np.random.randint(0, n_ratings, 1)[0]
 
 
-                    X_s[i, item, supp_cntr] = 1
+                    X_s[i, supp_cntr, item] = 1
                     y_s[i, supp_cntr] = self.item_rating_map[item][ratings_idx]
 
                     supp_cntr +=1

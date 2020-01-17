@@ -137,7 +137,7 @@ class WideAndDeep(nn.Module):
 
 
         dims = [d for d in indices.shape] + [1]
-        idx_tensor = torch.LongTensor(indices).reshape(dims)
+        idx_tensor = indices.long().reshape(dims)
 
         if self.use_embedding:
             grad = self.embedding.get_grad(indices)
