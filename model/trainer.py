@@ -133,10 +133,10 @@ class NeuralUtilityTrainer(object):
             if self.n_gpu > 1:
                 loss = loss.mean()
 
-            cum_loss += loss
             loss.backward()
             self.optimizer.step()
             loss = loss.detach()
+            cum_loss += loss
 
             if iter % self.loss_step == 0:
                 if iter == 0:
