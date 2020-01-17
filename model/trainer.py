@@ -278,7 +278,7 @@ class NeuralUtilityTrainer(object):
             test['users'] = test['users'].to(self.device)
             test['items'] = test['items'].to(self.device)
 
-            preds_batch = self.model.forward(test['users'], test['items']).detach().data.numpy()
+            preds_batch = self.model.forward(test['users'], test['items']).detach().data.cpu().numpy()
             preds.append(preds_batch)
 
             progress = 100*(cntr / n)
