@@ -10,9 +10,9 @@ class EmbeddingGrad(nn.Module):
         self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.num_embedding = num_embedding
         self.embedding_dim = embedding_dim
-        self.device = torch.device('cuda' if use_cuda else 'cpu')
 
-        self.input = torch.eye(num_embedding, requires_grad=True)
+
+        self.input = torch.eye(num_embedding, requires_grad=True).cuda()
         self.weights = nn.Linear(num_embedding, embedding_dim)
 
         if init_embed is not None:
@@ -33,11 +33,11 @@ class EmbeddingGrad(nn.Module):
             for i, row in enumerate(indices):
                 x[i] = self.input[row]
 
-        return x.to(self.device)
+        return x.to(self.weights.weight.device)
 
     def forward(self, indices):
-        #x = self._collect(indices)
-        ones = self.input[indices]
+        ones = self._collect(indices)
+        #ones = self.input[indices]
         e = self.weights(ones)
         return e
 
