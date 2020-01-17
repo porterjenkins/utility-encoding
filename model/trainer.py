@@ -191,13 +191,13 @@ class NeuralUtilityTrainer(object):
 
 
 
-            items = items.requires_grad_(True)
-            x_c_batch = x_c_batch.requires_grad_(True)
-            x_s_batch = x_s_batch.requires_grad_(True)
+            items = items.requires_grad_(True).to(self.device)
+            x_c_batch = x_c_batch.requires_grad_(True).to(self.device)
+            x_s_batch = x_s_batch.requires_grad_(True).to(self.device)
 
-            y_hat = self.model.forward(users, items)
-            y_hat_c = self.model.forward(users, x_c_batch)
-            y_hat_s = self.model.forward(users, x_s_batch)
+            y_hat = self.model.forward(users, items).to(self.device)
+            y_hat_c = self.model.forward(users, x_c_batch).to(self.device)
+            y_hat_s = self.model.forward(users, x_s_batch).to(self.device)
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
