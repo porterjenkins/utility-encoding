@@ -114,21 +114,21 @@ class NeuralUtilityTrainer(object):
         cum_loss = 0
         prev_loss = -1
 
-        generator = self.get_generator(self.users, self.items, self.y_train, False)
+        self.generator = self.get_generator(self.users, self.items, self.y_train, False)
 
-        while generator.epoch_cntr < self.n_epochs:
+        while self.generator.epoch_cntr < self.n_epochs:
 
-            users, items, y_batch = generator.get_batch(as_tensor=True)
+            batch = self.generator.get_batch(as_tensor=True)
 
-            users = users.to(self.device)
-            items = items.to(self.device)
-            y_batch = y_batch.to(self.device)
+            batch['users'] = batch['users'].to(self.device)
+            batch['items'] = batch['items'].to(self.device)
+            batch['y'] = batch['y'].to(self.device)
 
             # zero gradient
             self.optimizer.zero_grad()
 
-            y_hat = self.model.forward(users, items).to(self.device)
-            loss = self.loss(y_true=y_batch, y_hat=y_hat)
+            y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+            loss = self.loss(y_true=batch['y'], y_hat=y_hat)
 
             if self.n_gpu > 1:
                 loss = loss.mean()
@@ -155,7 +155,7 @@ class NeuralUtilityTrainer(object):
                 else:
                     prev_loss = loss
 
-            if generator.check():
+            if self.generator.check():
                 # Check if epoch is ending. Checkpoint and get evaluation metrics
                 self.checkpoint_model(suffix=iter)
                 if self.X_val is not None:
@@ -184,39 +184,39 @@ class NeuralUtilityTrainer(object):
         cum_loss = 0
         prev_loss = -1
 
-        generator = self.get_generator(self.users, self.items, self.y_train, True)
+        self.generator = self.get_generator(self.users, self.items, self.y_train, True)
 
-        while generator.epoch_cntr < self.n_epochs:
+        while self.generator.epoch_cntr < self.n_epochs:
 
-            users, items, y_batch, x_c_batch, y_c, x_s_batch, y_s = generator.get_batch(as_tensor=True)
+            batch = self.generator.get_batch(as_tensor=True)
 
-            y_batch = y_batch.to(self.device)
-            y_c = y_c.to(self.device)
-            y_s = y_s.to(self.device)
+            batch['y'] = batch['y'].to(self.device)
+            batch['y_c'] = batch['y_c'].to(self.device)
+            batch['y_s'] = batch['y_s'].to(self.device)
 
+            batch['items'] = batch['items'].requires_grad_(True).to(self.device)
+            batch['x_c'] = batch['x_c'].requires_grad_(True).to(self.device)
+            batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
 
-            items = items.requires_grad_(True).to(self.device)
-            x_c_batch = x_c_batch.requires_grad_(True).to(self.device)
-            x_s_batch = x_s_batch.requires_grad_(True).to(self.device)
-
-            y_hat = self.model.forward(users, items).to(self.device)
-            y_hat_c = self.model.forward(users, x_c_batch).to(self.device)
-            y_hat_s = self.model.forward(users, x_s_batch).to(self.device)
+            y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+            y_hat_c = self.model.forward(batch['users'], batch['x_c']).to(self.device)
+            y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device)
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
-            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s), y_batch, y_c, y_s)
+            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s),
+                                  batch['y'], batch['y_c'], batch['y_s'])
 
 
             if self.n_gpu > 1:
                 loss_u = loss_u.mean()
 
-            x_grad = torch.autograd.grad(loss_u, items, retain_graph=True)[0]
-            x_c_grad = torch.autograd.grad(loss_u, x_c_batch, retain_graph=True)[0]
-            x_s_grad = torch.autograd.grad(loss_u, x_s_batch, retain_graph=True)[0]
+            x_grad = torch.autograd.grad(loss_u, batch['items'], retain_graph=True)[0]
+            x_c_grad = torch.autograd.grad(loss_u, batch['x_c'], retain_graph=True)[0]
+            x_s_grad = torch.autograd.grad(loss_u, batch['x_s'], retain_graph=True)[0]
 
-            x_grad = torch.sum(torch.mul(x_grad, items), dim=1)
-            x_c_grad = torch.sum(torch.mul(x_c_grad, x_c_batch), -1)
-            x_s_grad = torch.sum(torch.mul(x_s_grad, x_s_batch), -1)
+            x_grad = torch.sum(torch.mul(x_grad, batch['items']), dim=1)
+            x_c_grad = torch.sum(torch.mul(x_c_grad, batch['x_c']), -1)
+            x_s_grad = torch.sum(torch.mul(x_s_grad, batch['x_s']), -1)
 
 
 
@@ -248,7 +248,7 @@ class NeuralUtilityTrainer(object):
                 else:
                     prev_loss = loss
 
-            if generator.check():
+            if self.generator.check():
                 # Check if epoch is ending. Checkpoint and get evaluation metrics
                 self.checkpoint_model(suffix=iter)
                 if self.X_val is not None:

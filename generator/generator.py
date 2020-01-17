@@ -28,12 +28,25 @@ class Generator(object):
         self.n_item = n_item if n_item else items.max()
         self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
         self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
+        self.idx = self._get_index()
 
+
+
+
+    def update_data(self, users, items, y, shuffle, batch_size):
+        self.users = users
+        self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
+        self.y = y
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.idx = self._get_index()
+        self.n_samples = self.users.shape[0]
+
+    def _get_index(self):
         if self.shuffle:
-            self.idx = np.random.permutation(np.arange(self.n_samples))
+            return np.random.permutation(np.arange(self.n_samples))
         else:
-            self.idx = np.arange(self.n_samples)
-
+            return np.arange(self.n_samples)
 
 
 
@@ -89,7 +102,11 @@ class Generator(object):
             users = torch.from_numpy(users)
             y_batch = torch.from_numpy(y_batch)
 
-        return users, items, y_batch
+        batch = {'users': users,
+                 'items': items,
+                 'y': y_batch}
+
+        return batch
 
 
 
@@ -157,22 +174,29 @@ class CoocurrenceGenerator(Generator):
 
     def get_batch(self, as_tensor=False):
 
-        users, items, y_batch = super(CoocurrenceGenerator, self).get_batch(False)
+        b = super(CoocurrenceGenerator, self).get_batch(False)
 
-        X_c, y_c = self.get_complement_set(users, items)
-        X_s, y_s = self.get_supp_set(users, items)
+        X_c, y_c = self.get_complement_set(b['users'], b['items'])
+        X_s, y_s = self.get_supp_set(b['users'], b['items'])
 
         if as_tensor:
-            items = torch.from_numpy(items.todense())
-            users = torch.from_numpy(users)
-            y_batch = torch.from_numpy(y_batch)
+            b['items'] = torch.from_numpy(b['items'].todense())
+            b['users'] = torch.from_numpy(b['users'])
+            b['y'] = torch.from_numpy(b['y'])
             X_c = torch.from_numpy(X_c)
             X_s = torch.from_numpy(X_s)
             y_c = torch.from_numpy(y_c)
             y_s = torch.from_numpy(y_s)
 
-        return users, items, y_batch, X_c, y_c, X_s, y_s
+        batch = {'users': b['users'],
+                 'items': b['items'],
+                 'y': b['y'],
+                 'x_c': X_c,
+                 'y_c': y_c,
+                 'x_s': X_s,
+                 'y_s': y_s}
 
+        return batch
 
 class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
