@@ -17,3 +17,13 @@ def get_eval_metrics(output, at_k=5):
     avg_dcg = output.dcg.mean()
 
     return output, rmse, avg_dcg
+
+
+def get_test_batch_size(n):
+
+    b = 50
+
+    while n % b > 0:
+        b -= 1
+
+    return b

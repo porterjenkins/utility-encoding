@@ -10,6 +10,8 @@ from baselines.ncf_mlp import MLP
 from experiments.utils import get_eval_metrics
 import argparse
 import pandas as pd
+from experiments.utils import get_test_batch_size
+
 
 
 parser = argparse.ArgumentParser()
@@ -75,16 +77,6 @@ if params['loss'] == 'utility':
 else:
     print("mse loss")
     trainer.fit()
-
-
-def get_test_batch_size(n):
-
-    b = 50
-
-    while n % b > 0:
-        b -= 1
-
-    return b
 
 
 
