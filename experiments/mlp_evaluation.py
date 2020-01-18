@@ -17,9 +17,11 @@ from experiments.utils import get_test_batch_size
 parser = argparse.ArgumentParser()
 parser.add_argument("--loss", type = str, help="loss function to optimize", default='mse')
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
+parser.add_argument("--checkpoint", type = bool, help="flag to run on gpu", default=False)
 args = parser.parse_args()
 
-
+MODEL_NAME = "mlp_{}".format(args.loss)
+MODEL_DIR = cfg.vals['model_dir']
 
 params = {
             "h_dim_size": 256,
@@ -68,7 +70,9 @@ trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[
                                eps=params["eps"], item_rating_map=item_rating_map,
                                user_item_rating_map=user_item_rating_map,
                                c_size=params["c_size"], s_size=params["s_size"],
-                               n_items=stats["n_items"], use_cuda=args.cuda)
+                               n_items=stats["n_items"], use_cuda=args.cuda,
+                               model_name=MODEL_NAME, model_path=MODEL_DIR,
+                               checkpoint=args.checkpoint)
 
 
 if params['loss'] == 'utility':

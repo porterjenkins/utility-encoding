@@ -173,7 +173,7 @@ class NeuralUtilityTrainer(object):
 
             iter += 1
 
-
+        self.checkpoint_model(suffix='done')
         return loss_arr
 
     def user_item_batch(self, input):
@@ -262,6 +262,7 @@ class NeuralUtilityTrainer(object):
 
             iter += 1
 
+        self.checkpoint_model(suffix='done')
         return loss_arr
 
 
