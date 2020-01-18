@@ -104,5 +104,5 @@ output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
 
 output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
 
-print("rmse: {:.4}".format(rmse))
-print("dcg: {:.4}".format(dcg))
+print("rmse: {:.4f}".format(rmse))
+print("dcg: {:.4f}".format(dcg))
