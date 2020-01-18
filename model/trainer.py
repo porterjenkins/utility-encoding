@@ -101,6 +101,16 @@ class NeuralUtilityTrainer(object):
             print("Training on CPU")
 
 
+    def get_input_grad(self, loss, x):
+
+        x_grad_all = torch.autograd.grad(loss, x, retain_graph=True)[0]
+        x_grad = torch.sum(torch.mul(x_grad_all, x), dim=-1)
+
+        return x_grad
+
+
+
+
     def fit(self):
 
         self.print_device_specs()
@@ -210,14 +220,10 @@ class NeuralUtilityTrainer(object):
             if self.n_gpu > 1:
                 loss_u = loss_u.mean()
 
-            x_grad = torch.autograd.grad(loss_u, batch['items'], retain_graph=True)[0]
-            x_c_grad = torch.autograd.grad(loss_u, batch['x_c'], retain_graph=True)[0]
-            x_s_grad = torch.autograd.grad(loss_u, batch['x_s'], retain_graph=True)[0]
 
-            x_grad = torch.sum(torch.mul(x_grad, batch['items']), dim=1)
-            x_c_grad = torch.sum(torch.mul(x_c_grad, batch['x_c']), -1)
-            x_s_grad = torch.sum(torch.mul(x_s_grad, batch['x_s']), -1)
-
+            x_grad = self.get_input_grad(loss_u, batch['items'])
+            x_c_grad = self.get_input_grad(loss_u, batch['x_c'])
+            x_s_grad = self.get_input_grad(loss_u, batch['x_s'])
 
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
