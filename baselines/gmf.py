@@ -29,21 +29,6 @@ class GMF(torch.nn.Module):
         # rating = self.logistic(logits)
         return logits
 
-    def get_input_grad(self, indices):
-        """
-        Get gradients with respect to inputs
-        :param indices: (ndarray) array of item indices
-        :return: (tensor) tensor of gradients with respect to inputs
-        """
-        if indices.ndim == 1:
-            indices = indices.reshape(-1, 1)
-
-        dims = [d for d in indices.shape] + [1]
-        idx_tensor = torch.LongTensor(indices).reshape(dims)
-
-        grad = self.embedding_item.get_grad(indices)
-        grad_at_idx = torch.gather(grad, -1, idx_tensor)
-        return torch.squeeze(grad_at_idx)
 
     def init_weight(self):
         pass
