@@ -91,7 +91,6 @@ class WideAndDeep(nn.Module):
         self.use_embedding = use_embedding
 
 
-        #self.embedding = nn.Embedding(n_items, h_dim_size).requires_grad_(True)
         self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
