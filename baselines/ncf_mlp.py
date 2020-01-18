@@ -11,6 +11,8 @@ class MLP(torch.nn.Module):
         self.num_users = config['num_users']
         self.num_items = config['num_items']
         self.latent_dim = config['latent_dim']
+        self.use_cuda = config['use_cuda']
+        self.device = torch.device('cuda' if self.use_cuda else 'cpu')
 
         self.embedding_user = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim)
         self.embedding = EmbeddingGrad(num_embedding=self.num_items, embedding_dim=self.latent_dim)
@@ -23,14 +25,20 @@ class MLP(torch.nn.Module):
         self.affine_output = torch.nn.Linear(in_features=config['layers'][-1], out_features=1)
         self.logistic = torch.nn.Sigmoid()
 
+        if self.use_cuda:
+            self = self.cuda()
+
     def forward(self, user_indices, item_indices):
 
-        user_embedding = self.embedding_user(user_indices).unsqueeze(dim=1)
+        user_embedding = self.embedding_user(user_indices)
         item_embedding = self.embedding(item_indices)
 
-        if item_embedding.shape[1] > 1:
-            # tile tensor for item-item concat
-            user_embedding = user_embedding.repeat(1,5,1)
+        if item_embedding.ndim == 2:
+            item_embedding = item_embedding.unsqueeze(1)
+
+        # align user and item dimensions for concatenation for supp/comp sets
+        elif item_embedding.ndim == 3:
+            user_embedding = user_embedding.repeat(1, item_embedding.shape[1], 1)
 
         vector = torch.cat([user_embedding, item_embedding], dim=-1)  # the concat latent vector
         for idx, _ in enumerate(range(len(self.fc_layers))):
@@ -38,7 +46,7 @@ class MLP(torch.nn.Module):
             vector = torch.nn.ReLU()(vector)
             # vector = torch.nn.BatchNorm1d()(vector)
             # vector = torch.nn.Dropout(p=0.5)(vector)
-        logits = self.affine_output(vector)
+        y_hat = self.affine_output(vector)
 
-        return logits
+        return y_hat
 

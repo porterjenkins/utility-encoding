@@ -1,69 +1,73 @@
 import os
 import sys
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
-import pandas as pd
 from preprocessing.utils import split_train_test_user, load_dict_output
 from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse
-import torch
 from baselines.ncf_mlp import MLP
-import pandas as pd
-import argparse
 from experiments.utils import get_eval_metrics
-from model.neural_utility_function import NeuralUtility
+import argparse
+import pandas as pd
+
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--loss", type = str, help="loss function to optimize", default='mse')
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
 args = parser.parse_args()
 
-print("Use CUDA: {}".format(args.cuda))
 
 
+params = {
+            "h_dim_size": 256,
+            "n_epochs": 10,
+            "batch_size": 32,
+            "lr": 5e-5,
+            "eps": .001,
+            "c_size": 5,
+            "s_size": 5,
+            "loss_step": 50,
+            "eval_k": 5,
+            "loss": args.loss
+        }
 
-params = {"loss": 'mse',
-                "h_dim_size": 256,
-                "n_epochs": 1,
-                "batch_size": 32,
-                "lr": 1e-3,
-                "eps": 0.01,
-                "c_size": 5,
-                "s_size": 5,
-                "loss_step": 1,
-                "eval_k": 5
-                }
 
-
+print("Reading dataset")
 data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
-
 df = pd.read_csv(data_dir + "ratings.csv")
 
 X = df[['user_id', 'item_id']].values.astype(np.int64)
-y = df['rating'].values.reshape(-1, 1)
+y = df['rating'].values.reshape(-1, 1).astype(np.float32)
+
+del df
+
+print("Dataset read complete...")
 
 user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
 item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
 stats = load_dict_output(data_dir, "stats.json")
 
+print("n users: {}".format(stats['n_users']))
+print("n items: {}".format(stats['n_items']))
+
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
 
-c = {'num_users': stats["n_users"],
-     'num_items': stats['n_items'],
-     'latent_dim': params['h_dim_size'],
-     'layers': [params['h_dim_size']*2, 64, 32]}
+mlp = MLP({'num_users': stats['n_users'], 'num_items': stats['n_items'], 'latent_dim': params["h_dim_size"],
+           'use_cuda':args.cuda, 'layers': [params['h_dim_size']*2, 64, 32]})
 
-model = NeuralUtility(backbone=MLP(c),
-                      n_items=stats["n_items"], h_dim_size=params["h_dim_size"],
-                      use_embedding=False)
+print("Model intialized")
+print("Beginning Training...")
 
-trainer = NeuralUtilityTrainer(X_train=X_train, y_train=y_train, model=model, loss=loss_mse, \
-                               n_epochs=params['n_epochs'], batch_size=params["batch_size"], lr=params["lr"],
-                               loss_step_print=params["loss_step"], eps=params["eps"],
-                               item_rating_map=item_rating_map, user_item_rating_map=user_item_rating_map,
-                               c_size=params["c_size"], s_size=params["s_size"], n_items=stats["n_items"],
-                               use_cuda=args.cuda)
+trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[:, 1:].reshape(-1,1),
+                               y_train=y_train, model=mlp, loss=loss_mse,
+                               n_epochs=params['n_epochs'], batch_size=params['batch_size'],
+                               lr=params["lr"], loss_step_print=params["loss_step"],
+                               eps=params["eps"], item_rating_map=item_rating_map,
+                               user_item_rating_map=user_item_rating_map,
+                               c_size=params["c_size"], s_size=params["s_size"],
+                               n_items=stats["n_items"], use_cuda=args.cuda)
+
 
 if params['loss'] == 'utility':
     print("utility loss")
@@ -73,18 +77,30 @@ else:
     trainer.fit()
 
 
-X_test = torch.from_numpy(X_test)
-test_users, test_items = trainer.get_item_user_indices(X_test)
-preds = model.predict(test_users, test_items).detach().numpy()
+def get_test_batch_size(n):
 
-# compute evaluate metrics
-x_test_user = X_test[:, 0].data.numpy()
+    b = 50
 
-output = pd.DataFrame(np.concatenate([x_test_user.reshape(-1,1), preds.reshape(-1,1), y_test.reshape(-1,1)], \
-                                    axis=1), columns = ['user_id', 'pred', 'y_true'])
+    while n % b > 0:
+        b -= 1
+
+    return b
+
+
+
+users_test = X_test[:, 0].reshape(-1,1)
+items_test = X_test[:, 1].reshape(-1,1)
+y_test = y_test.reshape(-1,1)
+test_batch_size = get_test_batch_size(users_test.shape[0])
+
+preds = trainer.predict(users=users_test, items=items_test, y=y_test,
+                        batch_size=test_batch_size).reshape(-1,1)
+
+
+output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
+                      columns = ['user_id', 'pred', 'y_true'])
 
 output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
 
-print("rmse: {:.4}".format(rmse))
-print("dcg: {:.4}".format(dcg))
-
+print("rmse: {:.4f}".format(rmse))
+print("dcg: {:.4f}".format(dcg))
