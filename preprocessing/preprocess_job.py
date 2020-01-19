@@ -13,7 +13,7 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--nrows", type = int, help="limit number of rows")
-parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens")
+parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}")
 args = parser.parse_args()
 
 

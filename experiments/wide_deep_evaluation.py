@@ -19,9 +19,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--loss", type = str, help="loss function to optimize", default='mse')
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
 parser.add_argument("--checkpoint", type = bool, help="flag to run on gpu", default=False)
+parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}", default="Movielens")
+
 args = parser.parse_args()
 
-MODEL_NAME = "wide_deep_{}".format(args.loss)
+MODEL_NAME = "wide_deep_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 50
 
@@ -41,7 +43,14 @@ params = {
 
 
 print("Reading dataset")
-data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
+
+if args.dataset == "movielens":
+    data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
+elif args.dataset == "amazon":
+    data_dir = cfg.vals['amazon_dir'] + "/preprocessed/"
+else:
+    raise ValueError("--dataset must be 'amazon' or 'movielens'")
+
 df = pd.read_csv(data_dir + "ratings.csv")
 
 X = df[['user_id', 'item_id']].values.astype(np.int64)
