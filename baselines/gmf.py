@@ -21,8 +21,12 @@ class GMF(torch.nn.Module):
 
     def forward(self, user_indices, item_indices):
 
-        user_embedding = self.embedding_user(user_indices).unsqueeze(dim=1)
+        user_embedding = self.embedding_user(user_indices).squeeze()
         item_embedding = self.embedding(item_indices)
+
+        if item_embedding.ndim == 3:
+
+            user_embedding = user_embedding.unsqueeze(1).repeat(1, item_embedding.shape[1], 1)
 
         element_product = torch.mul(user_embedding, item_embedding)
         logits = self.affine_output(element_product)
