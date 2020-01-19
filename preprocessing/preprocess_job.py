@@ -27,6 +27,14 @@ elif args.dataset == "amazon":
 
     df = pd.read_csv(cfg.vals['amazon_dir'] + "/ratings.csv", nrows=args.nrows)
     df.columns = ['user_id', 'item_id', 'rating']
+
+    # TODO: remove this and write another preprocessing layer
+    users = df.groupby("user_id").count()
+    users = users[users.rating > 2]
+    users_keep = list(users.index)
+
+    df = df[df.user_id.isin(users_keep)]
+
     out_dir = cfg.vals['amazon_dir'] + "/preprocessed/"
 
 else:
