@@ -16,7 +16,7 @@ from experiments.utils import get_test_sample_size
 parser = argparse.ArgumentParser()
 parser.add_argument("--loss", type = str, help="loss function to optimize", default='mse')
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
-parser.add_argument("--checkpoint", type = bool, help="flag to run on gpu", default=False)
+parser.add_argument("--checkpoint", type = bool, help="flag to run on gpu", default=True)
 parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}", default="Movielens")
 
 args = parser.parse_args()
