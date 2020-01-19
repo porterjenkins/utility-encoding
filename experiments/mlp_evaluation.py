@@ -10,7 +10,8 @@ from baselines.ncf_mlp import MLP
 from experiments.utils import get_eval_metrics
 import argparse
 import pandas as pd
-from experiments.utils import get_test_batch_size
+from experiments.utils import get_test_sample_size
+
 
 
 
@@ -22,6 +23,8 @@ args = parser.parse_args()
 
 MODEL_NAME = "mlp_{}".format(args.loss)
 MODEL_DIR = cfg.vals['model_dir']
+TEST_BATCH_SIZE = 50
+
 
 params = {
             "h_dim_size": 256,
@@ -56,6 +59,10 @@ print("n users: {}".format(stats['n_users']))
 print("n items: {}".format(stats['n_items']))
 
 X_train, X_test, y_train, y_test = split_train_test_user(X, y)
+n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
+
+X_test = X_test[:n_test, :]
+y_test = y_test[:n_test, :]
 
 mlp = MLP({'num_users': stats['n_users'], 'num_items': stats['n_items'], 'latent_dim': params["h_dim_size"],
            'use_cuda':args.cuda, 'layers': [params['h_dim_size']*2, 64, 32]})
@@ -87,10 +94,9 @@ else:
 users_test = X_test[:, 0].reshape(-1,1)
 items_test = X_test[:, 1].reshape(-1,1)
 y_test = y_test.reshape(-1,1)
-test_batch_size = get_test_batch_size(users_test.shape[0])
 
 preds = trainer.predict(users=users_test, items=items_test, y=y_test,
-                        batch_size=test_batch_size).reshape(-1,1)
+                        batch_size=TEST_BATCH_SIZE).reshape(-1,1)
 
 
 output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),

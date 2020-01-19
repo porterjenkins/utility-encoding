@@ -27,3 +27,10 @@ def get_test_batch_size(n):
         b -= 1
 
     return b
+
+def get_test_sample_size(n, k):
+
+    floor = n // k
+    n_update = floor*k
+
+    return n_update
