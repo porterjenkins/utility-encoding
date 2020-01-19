@@ -25,7 +25,7 @@ args = parser.parse_args()
 
 MODEL_NAME = "wide_deep_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
-TEST_BATCH_SIZE = 50
+TEST_BATCH_SIZE = 100
 
 
 params = {
