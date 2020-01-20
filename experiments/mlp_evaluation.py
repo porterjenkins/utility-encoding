@@ -26,7 +26,7 @@ args = parser.parse_args()
 MODEL_NAME = "mlp_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 100
-
+RANDOM_SEED = 1990
 
 params = {
             "h_dim_size": 256,
@@ -66,7 +66,7 @@ stats = load_dict_output(data_dir, "stats.json")
 print("n users: {}".format(stats['n_users']))
 print("n items: {}".format(stats['n_items']))
 
-X_train, X_test, y_train, y_test = split_train_test_user(X, y)
+X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=RANDOM_SEED)
 n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 
 X_test = X_test[:n_test, :]
