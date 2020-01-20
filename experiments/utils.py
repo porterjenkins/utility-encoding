@@ -19,6 +19,15 @@ def get_eval_metrics(output, at_k=5):
     return output, rmse, avg_dcg
 
 
+def get_idcg(k):
+    ideal = np.zeros(k)
+    ideal[0] = 1
+    rank = np.arange(1, k+1)
+
+    idcg = (np.power(2, ideal) - 1) / np.log2(rank + 1)
+    return idcg
+
+
 def get_choice_eval_metrics(output, at_k=5):
 
     output.sort_values(by=['user_id', 'pred'], inplace=True, ascending=False)
@@ -28,13 +37,15 @@ def get_choice_eval_metrics(output, at_k=5):
     output['rank'] = output[['user_id', 'pred']].groupby('user_id').rank(method='first', ascending=False).astype(float)
     output['dcg'] = (np.power(2, output['y_true']) - 1) / np.log2(output['rank'] + 1)
 
-    hit_ratio = output[['user_id', 'y_true']].groupby("user_id").sum().mean()
+    results = output[['user_id', 'y_true', 'dcg']].groupby("user_id").sum().mean()
 
 
 
-    cum_dcg = output.dcg.sum()
+    ndcg = results['dcg']
+    hit_ratio = results['y_true']
 
-    return output, hit_ratio, cum_dcg
+
+    return output, hit_ratio, ndcg
 
 
 def get_test_batch_size(n):

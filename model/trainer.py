@@ -153,14 +153,14 @@ class NeuralUtilityTrainer(object):
                     avg_loss = cum_loss
                 else:
                     avg_loss = cum_loss / self.loss_step
-                print("iteration: {} - loss: {:.4f}".format(iter, avg_loss))
+                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
                 cum_loss = 0
 
                 loss_arr.append(avg_loss)
 
                 if abs(prev_loss - loss) < self.eps:
                     print('early stopping criterion met. Finishing training')
-                    print("{:.4f} --> {:.4f}".format(prev_loss, loss))
+                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
                     break
                 else:
                     prev_loss = loss
@@ -242,14 +242,14 @@ class NeuralUtilityTrainer(object):
                     avg_loss = cum_loss
                 else:
                     avg_loss = cum_loss / self.loss_step
-                print("iteration: {} - loss: {:.4f}".format(iter, avg_loss))
+                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
                 cum_loss = 0
 
                 loss_arr.append(avg_loss)
 
                 if abs(prev_loss - loss) < self.eps:
                     print('early stopping criterion met. Finishing training')
-                    print("{:.4f} --> {:.4f}".format(prev_loss, loss))
+                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
                     break
                 else:
                     prev_loss = loss

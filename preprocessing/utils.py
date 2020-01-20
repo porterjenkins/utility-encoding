@@ -171,7 +171,8 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
             if item_id_map[row.item_id] not in item_rating_map:
                 item_rating_map[item_id_map[row.item_id]] = []
 
-            item_rating_map[item_id_map[row.item_id]].append(row.rating)
+            # set item_rating_map elements to 0.0 --> supplement set
+            item_rating_map[item_id_map[row.item_id]].append(0.0)
 
             # update user_item_rating dict
 

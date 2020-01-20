@@ -161,12 +161,19 @@ class CoocurrenceGenerator(Generator):
                 if item not in user_items:
                     s_set[supp_cntr] = item
 
-                    n_ratings = len(self.item_rating_map[item])
+                    # handle case where item appears in test data, but not training data
+                    try:
+                        item_ratings = self.item_rating_map[item]
+                    except KeyError:
+                        continue
+
+
+                    n_ratings = len(item_ratings)
                     ratings_idx = np.random.randint(0, n_ratings, 1)[0]
 
 
                     X_s[i, supp_cntr, item] = 1
-                    y_s[i, supp_cntr] = self.item_rating_map[item][ratings_idx]
+                    y_s[i, supp_cntr] = item_ratings[ratings_idx]
 
                     supp_cntr +=1
 

@@ -37,7 +37,7 @@ params = {
             "c_size": 5,
             "s_size": 5,
             "loss_step": 50,
-            "eval_k": 45,
+            "eval_k": 5,
             "loss": args.loss
         }
 
