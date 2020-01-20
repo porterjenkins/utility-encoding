@@ -8,7 +8,11 @@ from preprocessing.utils import preprocess_user_item_df, write_dict_output, get_
 import pandas as pd
 import config.config as cfg
 import numpy as np
+from sklearn.model_selection import train_test_split
 
+
+RANDOM_SEED = 1990
+TEST_SIZE = .2
 
 
 parser = argparse.ArgumentParser()
@@ -38,6 +42,8 @@ elif args.dataset == "amazon":
 else:
     raise ValueError("--dataset must be 'amazon' or 'movielens'")
 
+
+
 arr, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats = preprocess_user_item_df(
     df[['user_id', 'item_id', 'rating']])
 
@@ -51,14 +57,16 @@ write_dict_output(out_dir, "item_id_map.json", item_id_map)
 write_dict_output(out_dir, "id_item_map.json", id_item_map)
 write_dict_output(out_dir, "stats.json", stats)
 
+arr = np.concatenate([arr, df[['rating', 'timestamp']]], axis=1)
+df = pd.DataFrame(arr, columns=['user_id', 'item_id', 'rating', 'timestamp'])
 
-if 'timestamp' in df.columns:
+X_train, X_test, y_train, y_test = train_test_split(df[['user_id', 'item_id', 'timestamp']], df[['rating']],
+                                                    test_size=TEST_SIZE, stratify=df["user_id"].values.reshape(-1,1),
+                                                    random_state=RANDOM_SEED)
 
-    arr = np.concatenate([arr, df[['rating', 'timestamp']]], axis=1)
-    df = pd.DataFrame(arr, columns=['user_id', 'item_id', 'rating', 'timestamp'])
 
-else:
-    arr = np.concatenate([arr, df[['rating']]], axis=1)
-    df = pd.DataFrame(arr, columns=['user_id', 'item_id', 'rating'])
+X_train.to_csv(out_dir + "x_train.csv", index=False)
+X_train.to_csv(out_dir + "y_train.csv", index=False)
 
-df.to_csv(out_dir + "ratings.csv", index=False)
+X_test.to_csv(out_dir + "x_test.csv", index=False)
+y_test.to_csv(out_dir + "y_test.csv", index=False)
