@@ -98,6 +98,138 @@ def preprocess_user_item_df(df):
     return output, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
 
 
+def preprocess_user_item_choice_df(df, test_size_per_user=10):
+
+    n_users = len(np.unique(df['user_id']))
+
+    X_test_pos = np.zeros((n_users, 2))
+    X_test_neg = np.zeros((n_users*test_size_per_user, 2))
+
+    X_train_list = []
+
+    n_rows = df.shape[0]
+    output = np.zeros((n_rows, 2))
+
+    user_item_rating_map = {}
+    item_rating_map = {}
+
+    user_id_map = {}
+    item_id_map = {}
+
+    id_user_map = {}
+    id_item_map = {}
+
+    user_cntr = 0
+    item_cntr = 0
+
+    row_cntr = 0
+
+    for user_id, user_data in df.groupby("user_id"):
+
+        user_data.sort_values(by="timestamp", ascending=True, inplace=True)
+        user_n = user_data.shape[0]
+
+        user_data_train = user_data.iloc[:user_n-1, :]
+        user_data_test = user_data.values[user_n-1, :2]
+
+        X_train_list.append(user_data_train)
+
+        # add user_id to map
+        if user_id not in user_id_map:
+            user_id_map[user_id] = user_cntr
+            id_user_map[user_cntr] = user_id
+            user_cntr += 1
+
+        # test set item to item map
+
+        if user_data_test[1] not in item_id_map:
+            item_id_map[user_data_test[1]] = item_cntr
+            id_item_map[item_cntr] = user_data_test[1]
+
+            item_cntr += 1
+
+        # assign test sample to vector
+        test_row_idx = user_id_map[user_id]
+        X_test_pos[test_row_idx, :] = user_data_test
+
+
+
+        for idx, row in user_data_train.iterrows():
+
+            if row.item_id not in item_id_map:
+                item_id_map[row.item_id] = item_cntr
+                id_item_map[item_cntr] = row.item_id
+
+                item_cntr += 1
+
+
+            # update item_rating dicts
+
+            if item_id_map[row.item_id] not in item_rating_map:
+                item_rating_map[item_id_map[row.item_id]] = []
+
+            item_rating_map[item_id_map[row.item_id]].append(row.rating)
+
+            # update user_item_rating dict
+
+            if user_id_map[row.user_id] not in user_item_rating_map:
+                user_item_rating_map[user_id_map[row.user_id]] = {}
+
+
+
+            user_item_rating_map[user_id_map[row.user_id]][item_id_map[row.item_id]] = row.rating
+
+            #output[row_cntr, 0] = user_id_map[row.user_id]
+            #output[row_cntr, 1] = item_id_map[row.item_id]
+
+
+            row_cntr += 1
+
+            print("progress: {:.4f}%".format((row_cntr / n_rows)*100), end='\r')
+
+    stats = {
+        'n_users': user_cntr,
+        'n_items': item_cntr
+    }
+
+    print ("generating test set samples")
+
+    ## Generate k samples for ranking and recommendation experiment
+    test_set_neg_idx = 0
+
+    for user, item_dict in user_item_rating_map.items():
+
+        neg_sample_cntr = 0
+
+        while neg_sample_cntr < test_size_per_user:
+
+            neg_sample = np.random.randint(0, stats["n_items"], size=1)[0]
+
+            if neg_sample not in set(item_dict.keys()):
+
+                # store in test set vector
+                X_test_neg[test_set_neg_idx, 0] = user
+                X_test_neg[test_set_neg_idx, 1] = neg_sample
+
+
+                neg_sample_cntr += 1
+                test_set_neg_idx += 1
+
+                print("progress: {:.4f}%".format((test_set_neg_idx / (n_users*test_size_per_user)) * 100), end='\r')
+
+
+    X_test = np.concatenate((X_test_pos, X_test_neg), axis=0)
+
+    y_test_pos = np.ones((n_users, 1))
+    y_test_neg = np.zeros((n_users*test_size_per_user, 1))
+
+    y_test = np.concatenate((y_test_pos, y_test_neg), axis=0)
+
+    X_train = pd.concat(X_train_list)
+
+    return X_train, X_test, y_test, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
+
+
 
 def write_dict_output(out_dir, fname, data):
 
