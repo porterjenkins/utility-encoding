@@ -33,11 +33,11 @@ params = {
             "n_epochs": 10,
             "batch_size": 32,
             "lr": 5e-5,
-            "eps": 1e-2,
+            "eps": 1e-6,
             "c_size": 5,
             "s_size": 5,
             "loss_step": 50,
-            "eval_k": 5,
+            "eval_k": 45,
             "loss": args.loss
         }
 
@@ -112,7 +112,7 @@ preds = trainer.predict(users=users_test, items=items_test, y=y_test,
 output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
                       columns = ['user_id', 'pred', 'y_true'])
 
-output, rmse, dcg = get_choice_eval_metrics(output, at_k=params['eval_k'])
+output, hit_ratio, ndcg = get_choice_eval_metrics(output, at_k=params['eval_k'])
 
-print("rmse: {:.4f}".format(rmse))
-print("dcg: {:.4f}".format(dcg))
+print("hit ratio: {:.4f}".format(hit_ratio))
+print("ndcg: {:.4f}".format(ndcg))
