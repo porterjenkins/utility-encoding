@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from preprocessing.utils import preprocess_user_item_df, write_dict_output
+from preprocessing.utils import preprocess_user_item_df, write_dict_output, get_amazon_datasets
 import pandas as pd
 import config.config as cfg
 import numpy as np
@@ -25,16 +25,14 @@ if args.dataset == "movielens":
 
 elif args.dataset == "amazon":
 
-    df = pd.read_csv(cfg.vals['amazon_dir'] + "/ratings.csv", nrows=args.nrows)
-    df.columns = ['user_id', 'item_id', 'rating']
+    df = get_amazon_datasets(cfg.vals['amazon_dir'])
 
-    # TODO: remove this and write another preprocessing layer
-    users = df.groupby("user_id").count()
-    users = users[users.rating > 2]
-    users_keep = list(users.index)
-
-    df = df[df.user_id.isin(users_keep)]
-
+    df.rename(columns={"overall": "rating",
+               "reviewerID": "user_id",
+               "asin": "item_id",
+               "unixReviewTime": "timestamp"},
+              inplace=True)
+    df = df[['user_id', 'item_id', 'rating', 'timestamp']]
     out_dir = cfg.vals['amazon_dir'] + "/preprocessed/"
 
 else:

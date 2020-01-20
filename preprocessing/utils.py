@@ -5,6 +5,7 @@ import json
 import os
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np
+import gzip
 
 def get_one_hot_encodings(X, sparse=False):
     encoder = OneHotEncoder(sparse=sparse)
@@ -129,3 +130,48 @@ def load_dict_output(dir, fname, keys_to_int=False):
 
     else:
         return data
+
+
+true = True
+false = False
+
+def parse(path):
+    g = gzip.open(path, 'rb')
+    for line in g:
+        yield eval(line)
+
+def pandas_df(path):
+    i = 0
+    df = {}
+    for d in parse(path):
+        df[i] = d
+        i += 1
+    return pd.DataFrame.from_dict(df, orient='index')
+
+
+def get_amazon_datasets(data_dir):
+
+    data_list = list()
+    for f in os.listdir(data_dir):
+
+        if f.endswith('.gz'):
+            print("getting data from {}".format(f))
+            fname = "{}/{}".format(data_dir, f)
+            df = pandas_df(fname)
+            df = df.drop(columns=[
+                "reviewerName",
+                "reviewText",
+                "summary",
+                "reviewTime",
+                "verified",
+                "vote",
+                "style",
+                "image"
+            ])
+
+            data_list.append(df)
+
+    data_all = pd.concat(data_list)
+    return data_all
+
+
