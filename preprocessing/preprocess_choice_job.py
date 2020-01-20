@@ -56,12 +56,13 @@ write_dict_output(out_dir, "id_item_map.json", id_item_map)
 write_dict_output(out_dir, "stats.json", stats)
 
 
+X_train = pd.DataFrame(X_train, columns=['user_id', 'item_id', 'rating', 'timestamp'])
 
 X_train[['user_id', 'item_id', 'timestamp']].to_csv(out_dir + "x_train.csv", index=False)
 X_train[['rating']].to_csv(out_dir + "y_train.csv", index=False)
 
 X_test = pd.DataFrame(X_test, columns=['user_id', 'item_id'])
-y_test = pd.DataFrame(X_test, columns=['rating'])
+y_test = pd.DataFrame(y_test, columns=['rating'])
 
 X_test.to_csv(out_dir + "x_test.csv", index=False)
 y_test.to_csv(out_dir + "y_test.csv", index=False)

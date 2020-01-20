@@ -81,17 +81,20 @@ class WideAndDeepPretrained(nn.Module):
 
 class WideAndDeep(nn.Module):
 
-    def __init__(self, n_items, h_dim_size, fc1=64, fc2=32, use_cuda=False, use_embedding=True):
+    def __init__(self, n_items, h_dim_size, fc1=64, fc2=32, use_cuda=False, use_embedding=True, use_logit=False):
         super(WideAndDeep, self).__init__()
         self.n_items = n_items
         self.h_dim_size = h_dim_size
         self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.use_cuda = use_cuda
+        self.use_logit = use_logit
         self.use_embedding = use_embedding
         self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
         self.fc_1 = nn.Linear(h_dim_size, fc1)
         self.fc_2 = nn.Linear(fc1, fc2)
         self.output_layer = nn.Linear(n_items + fc2, 1)
+        self.logistic = torch.nn.Sigmoid()
+
 
         if use_cuda:
             self = self.cuda()
@@ -106,6 +109,9 @@ class WideAndDeep(nn.Module):
         h = torch.cat([h, items], dim=-1)
 
         y_hat = self.output_layer(h)
+
+        if self.use_logit:
+            y_hat = self.logistic(y_hat)
 
         return y_hat
 

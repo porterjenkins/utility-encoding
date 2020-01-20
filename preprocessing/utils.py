@@ -108,7 +108,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
     X_train_list = []
 
     n_rows = df.shape[0]
-    output = np.zeros((n_rows, 2))
+
 
     user_item_rating_map = {}
     item_rating_map = {}
@@ -122,8 +122,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
     user_cntr = 0
     item_cntr = 0
 
-    row_cntr = 0
-
+    prog_cntr = 0
     for user_id, user_data in df.groupby("user_id"):
 
         user_data.sort_values(by="timestamp", ascending=True, inplace=True)
@@ -131,8 +130,6 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
         user_data_train = user_data.iloc[:user_n-1, :]
         user_data_test = user_data.values[user_n-1, :2]
-
-        X_train_list.append(user_data_train)
 
         # add user_id to map
         if user_id not in user_id_map:
@@ -150,9 +147,15 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
         # assign test sample to vector
         test_row_idx = user_id_map[user_id]
-        X_test_pos[test_row_idx, :] = user_data_test
+
+        #X_test_pos[test_row_idx, :] = user_data_test
+        X_test_pos[test_row_idx, 0] = user_id_map[user_data_test[0]]
+        X_test_pos[test_row_idx, 1] = item_id_map[user_data_test[1]]
+
+        user_output = np.zeros_like(user_data_train)
 
 
+        row_cntr = 0
 
         for idx, row in user_data_train.iterrows():
 
@@ -179,13 +182,18 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
             user_item_rating_map[user_id_map[row.user_id]][item_id_map[row.item_id]] = row.rating
 
-            #output[row_cntr, 0] = user_id_map[row.user_id]
-            #output[row_cntr, 1] = item_id_map[row.item_id]
+            user_output[row_cntr, 0] = user_id_map[row.user_id]
+            user_output[row_cntr, 1] = item_id_map[row.item_id]
+            user_output[row_cntr, 2] = row.rating
+            user_output[row_cntr, 3] = row.timestamp
 
 
             row_cntr += 1
+            prog_cntr += 1
 
-            print("progress: {:.4f}%".format((row_cntr / n_rows)*100), end='\r')
+            print("progress: {:.4f}%".format((prog_cntr / n_rows)*100), end='\r')
+
+        X_train_list.append(user_output)
 
     stats = {
         'n_users': user_cntr,
@@ -225,7 +233,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
     y_test = np.concatenate((y_test_pos, y_test_neg), axis=0)
 
-    X_train = pd.concat(X_train_list)
+    X_train = np.concatenate(X_train_list, axis=0)
 
     return X_train, X_test, y_test, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats
 

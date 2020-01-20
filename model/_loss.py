@@ -1,4 +1,5 @@
 import torch
+from torch.nn import BCELoss
 
 
 def loss_mse(y_true, y_hat):
@@ -30,3 +31,8 @@ def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
 
     return loss
 
+def loss_logit(y_true, y_hat):
+    loss_calc = BCELoss()
+
+    loss = loss_calc(y_hat, y_true)
+    return loss
