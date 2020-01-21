@@ -23,7 +23,7 @@ parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon
 
 args = parser.parse_args()
 
-MODEL_NAME = "wide_deep_{}_{}".format(args.dataset, args.loss)
+MODEL_NAME = "encoder_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990
@@ -70,15 +70,14 @@ n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
-wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32,
-                        use_cuda=args.cuda)
+encoder = UtilityEncoder(stats['n_items'], h_dim_size=params["h_dim_size"], use_cuda=args.cuda)
 
 
 print("Model intialized")
 print("Beginning Training...")
 
 trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[:, 1:].reshape(-1,1),
-                               y_train=y_train, model=wide_deep, loss=loss_mse,
+                               y_train=y_train, model=encoder, loss=loss_mse,
                                n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                                lr=params["lr"], loss_step_print=params["loss_step"],
                                eps=params["eps"], item_rating_map=item_rating_map,
