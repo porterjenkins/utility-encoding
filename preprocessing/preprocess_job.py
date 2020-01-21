@@ -66,7 +66,7 @@ X_train, X_test, y_train, y_test = train_test_split(df[['user_id', 'item_id', 't
 
 
 X_train.to_csv(out_dir + "x_train.csv", index=False)
-X_train.to_csv(out_dir + "y_train.csv", index=False)
+y_train.to_csv(out_dir + "y_train.csv", index=False)
 
 X_test.to_csv(out_dir + "x_test.csv", index=False)
 y_test.to_csv(out_dir + "y_test.csv", index=False)

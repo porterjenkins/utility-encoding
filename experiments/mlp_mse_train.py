@@ -68,7 +68,7 @@ X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
 mlp = MLP({'num_users': stats['n_users'], 'num_items': stats['n_items'], 'latent_dim': params["h_dim_size"],
-           'use_cuda':args.cuda, 'layers': [params['h_dim_size']*2, 64, 32]})
+           'use_cuda':args.cuda, 'layers': [params['h_dim_size']*2, 64, 32], "use_logit": False})
 
 print("Model intialized")
 print("Beginning Training...")
