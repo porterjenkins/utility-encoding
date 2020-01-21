@@ -12,6 +12,7 @@ class MLP(torch.nn.Module):
         self.num_items = config['num_items']
         self.latent_dim = config['latent_dim']
         self.use_cuda = config['use_cuda']
+        self.use_logit = config["use_logit"]
         self.device = torch.device('cuda' if self.use_cuda else 'cpu')
 
         self.embedding_user = torch.nn.Embedding(num_embeddings=self.num_users, embedding_dim=self.latent_dim)
@@ -47,6 +48,8 @@ class MLP(torch.nn.Module):
             # vector = torch.nn.BatchNorm1d()(vector)
             # vector = torch.nn.Dropout(p=0.5)(vector)
         y_hat = self.affine_output(vector)
+        if self.use_logit:
+            y_hat = self.logistic(y_hat).squeeze(dim=-1)
 
         return y_hat
 
