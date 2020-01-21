@@ -2,7 +2,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import config.config as cfg
-from preprocessing.utils import split_train_test_user, load_dict_output
+from preprocessing.utils import load_dict_output
 from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse
@@ -11,7 +11,7 @@ import torch
 from experiments.utils import get_eval_metrics
 import argparse
 import pandas as pd
-from experiments.utils import get_test_sample_size
+from experiments.utils import get_test_sample_size, read_train_test_dir
 
 
 
@@ -52,14 +52,11 @@ elif args.dataset == "amazon":
 else:
     raise ValueError("--dataset must be 'amazon' or 'movielens'")
 
-df = pd.read_csv(data_dir + "ratings.csv")
 
-X = df[['user_id', 'item_id']].values.astype(np.int64)
-y = df['rating'].values.reshape(-1, 1).astype(np.float32)
 
-del df
-
+X_train, X_test, y_train, y_test = read_train_test_dir(data_dir)
 print("Dataset read complete...")
+
 
 user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
 item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
@@ -68,7 +65,6 @@ stats = load_dict_output(data_dir, "stats.json")
 print("n users: {}".format(stats['n_users']))
 print("n items: {}".format(stats['n_items']))
 
-X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=RANDOM_SEED)
 
 n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
