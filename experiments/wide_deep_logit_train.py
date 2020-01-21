@@ -92,13 +92,11 @@ trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[
 if params['loss'] == 'utility':
     print("utility loss")
     trainer.fit_utility_loss()
-elif params['loss'] == 'mse':
-    print("mse loss")
-    trainer.fit()
 elif params['loss'] == 'logit':
     print("logistic loss")
     trainer.fit()
-
+else:
+    raise ValueError("loss must be in ['utility', 'logit']")
 
 users_test = X_test[:, 0].reshape(-1,1)
 items_test = X_test[:, 1].reshape(-1,1)
