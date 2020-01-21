@@ -38,7 +38,8 @@ params = {
             "s_size": 5,
             "loss_step": 50,
             "eval_k": 5,
-            "loss": args.loss
+            "loss": args.loss,
+            "lambda": .05
         }
 
 
@@ -87,7 +88,7 @@ trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[
                                c_size=params["c_size"], s_size=params["s_size"],
                                n_items=stats["n_items"], use_cuda=args.cuda,
                                model_name=MODEL_NAME, model_path=MODEL_DIR,
-                               checkpoint=args.checkpoint)
+                               checkpoint=args.checkpoint, lmbda=params["lambda"])
 
 
 if params['loss'] == 'utility':

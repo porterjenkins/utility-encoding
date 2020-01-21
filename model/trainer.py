@@ -15,7 +15,7 @@ class NeuralUtilityTrainer(object):
 
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
-                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None):
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1):
         self.users = users
         self.items = items
         self.y_train = y_train
@@ -37,6 +37,7 @@ class NeuralUtilityTrainer(object):
         self.y_val = y_val
         self.use_cuda = use_cuda
         self.n_gpu = torch.cuda.device_count()
+        self.lmbda=lmbda
 
         print(self.device)
         if self.use_cuda and self.n_gpu > 1:
@@ -226,7 +227,7 @@ class NeuralUtilityTrainer(object):
             x_s_grad = self.get_input_grad(loss_u, batch['x_s'])
 
 
-            loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=0.1)
+            loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=self.lmbda)
 
             if self.n_gpu > 1:
                 loss = loss.mean()
