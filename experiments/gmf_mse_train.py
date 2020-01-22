@@ -25,7 +25,7 @@ parser.add_argument("--batch_size", type = int, help = "Size of training batch",
 parser.add_argument("--lr", type = float, help = "Learning Rate", default=5e-5)
 parser.add_argument("--c_size", type = int, help = "Size of complement set", default=5)
 parser.add_argument("--s_size", type = int, help = "Size of supplement set", default=5)
-parser.add_argument("--lmbda", type = int, help = "Size of supplement set", default=.1)
+parser.add_argument("--lmbda", type = float, help = "Size of supplement set", default=.1)
 
 
 
