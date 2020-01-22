@@ -38,11 +38,19 @@ class DeepFM(torch.nn.Module):
         user_linear = self.user_linear(users)
         item_linear = self.item_linear(items).unsqueeze(dim=-1)
 
+        if item_embed.ndim == 3:
+            user_embed = user_embed.unsqueeze(1).repeat(1, items.shape[1], 1)
+            user_linear = user_linear.unsqueeze(1).repeat(1, items.shape[1], 1)
+
 
         x_embed = torch.cat([user_embed, item_embed], dim=-1)
 
         x_fm = self.fm(x_embed).unsqueeze(dim=-1)
         x_mlp = self.mlp(x_embed.view(-1, self.embed_output_dim))
+
+        if item_embed.ndim == 3:
+            x_mlp = x_mlp.view(-1, items.shape[1], 1)
+
         output = user_linear + item_linear + x_fm + x_mlp
 
         if self.use_logit:

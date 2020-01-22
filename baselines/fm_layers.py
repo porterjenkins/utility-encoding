@@ -17,7 +17,7 @@ class FeaturesLinear(torch.nn.Module):
         :param x: Long tensor of size ``(batch_size, num_fields)``
         """
         x = x + x.new_tensor(self.offsets).unsqueeze(0)
-        return torch.sum(self.fc(x), dim=1) + self.bias
+        return torch.sum(self.fc(x), dim=-1) + self.bias
 
 
 class FeaturesSparseLinear(torch.nn.Module):
@@ -104,8 +104,8 @@ class FactorizationMachine(torch.nn.Module):
         """
         :param x: Float tensor of size ``(batch_size, num_fields, embed_dim)``
         """
-        square_of_sum = torch.sum(x, dim=1) ** 2
-        sum_of_square = torch.sum(x ** 2, dim=1)
+        square_of_sum = torch.sum(x, dim=-1) ** 2
+        sum_of_square = torch.sum(x ** 2, dim=-1)
         ix = square_of_sum - sum_of_square
         if self.reduce_sum:
             ix = torch.sum(ix, dim=1, keepdim=True)
