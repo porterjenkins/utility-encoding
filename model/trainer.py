@@ -208,6 +208,7 @@ class NeuralUtilityTrainer(object):
             batch['items'] = batch['items'].requires_grad_(True).to(self.device)
             batch['x_c'] = batch['x_c'].requires_grad_(True).to(self.device)
             batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
+            batch['users'] = batch['users'].to(self.device)
 
             y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
             y_hat_c = self.model.forward(batch['users'], batch['x_c']).to(self.device)
