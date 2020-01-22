@@ -3,6 +3,7 @@
 import torch
 
 from baselines.fm_layers import FactorizationMachine, FeaturesEmbedding, FeaturesLinear, MultiLayerPerceptron
+from baselines.fm_layers import FeaturesSparseEmbedding, FeaturesSparseLinear
 
 
 class DeepFM(torch.nn.Module):
@@ -15,9 +16,14 @@ class DeepFM(torch.nn.Module):
     def __init__(self, field_dims, embed_dim, mlp_dims, dropout, use_logit=False):
         super().__init__()
         self.use_logit = use_logit
-        self.linear = FeaturesLinear(field_dims)
+        self.user_linear = FeaturesSparseLinear(field_dims[0])
+        self.item_linear = FeaturesLinear(field_dims[1])
+
         self.fm = FactorizationMachine(reduce_sum=False)
-        self.embedding = FeaturesEmbedding(field_dims, embed_dim)
+
+        self.user_embedding = FeaturesSparseEmbedding(field_dims[0], embed_dim)
+        self.item_embedding = FeaturesEmbedding(field_dims[1], embed_dim)
+
         self.embed_output_dim = len(field_dims) * embed_dim
         self.mlp = MultiLayerPerceptron(self.embed_output_dim, mlp_dims, dropout)
 
@@ -25,12 +31,19 @@ class DeepFM(torch.nn.Module):
         """
         :param x: Long tensor of size ``(batch_size, num_fields)``
         """
-        #x = torch.cat([users, items], dim=-1)
-        embed_x = self.embedding(items)
-        x_linear = self.linear(items).unsqueeze(dim=-1)
-        x_fm = self.fm(embed_x).unsqueeze(dim=-1)
-        x_mlp = self.mlp(embed_x.view(-1, self.embed_output_dim))
-        output = x_linear + x_fm + x_mlp
+
+        user_embed = self.user_embedding(users).squeeze()
+        item_embed = self.item_embedding(items)
+
+        user_linear = self.user_linear(users)
+        item_linear = self.item_linear(items).unsqueeze(dim=-1)
+
+
+        x_embed = torch.cat([user_embed, item_embed], dim=-1)
+
+        x_fm = self.fm(x_embed).unsqueeze(dim=-1)
+        x_mlp = self.mlp(x_embed.view(-1, self.embed_output_dim))
+        output = user_linear + item_linear + x_fm + x_mlp
 
         if self.use_logit:
             output = torch.sigmoid(output)

@@ -85,7 +85,7 @@ n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
-model = DeepFM(field_dims=[stats["n_items"]], embed_dim=params["h_dim_size"], mlp_dims=(16, 16), dropout=0.2)
+model = DeepFM(field_dims=[stats["n_users"], stats["n_items"]], embed_dim=params["h_dim_size"], mlp_dims=(16, 16), dropout=0.2)
 
 
 print("Model intialized")
