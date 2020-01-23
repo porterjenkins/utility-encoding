@@ -4,13 +4,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from preprocessing.utils import preprocess_user_item_df
 import numpy as np
 import pandas as pd
-from model.wide_and_deep import WideAndDeep
 from model.encoder import UtilityEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import mean_squared_error
 import math
-
+from model.trainer import NeuralUtilityTrainer
+from model._loss import loss_mse
+import torch
 
 UTILITY = sys.argv[1]
 
@@ -18,9 +19,9 @@ print("Running simulation with {} utility".format(UTILITY))
 
 
 RANDOM_SEED = 1990
-N_USERS = 1000
+N_USERS = 10
 N = 64
-N_SIM = 8
+N_SIM = 2
 RHO = 2
 
 assert UTILITY in ['cobb-douglas', 'ces']
@@ -49,6 +50,10 @@ def get_analytical_cobb_douglas_mrs(w1, w2):
 
     #return w1 + w2
     return -w1/w2
+
+def get_analytical_stone_geary_mrs(w1, w2, gamma_1, gamma_2):
+
+    return -(w1*gamma_1)/(w2*gamma_2)
 
 def get_analytical_ces_mrs(w1, w2, rho):
 
@@ -167,8 +172,9 @@ else:
 df = pd.DataFrame(np.concatenate([X, y], axis=1), columns=['user_id', 'item_id', 'rating'])
 df, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats = preprocess_user_item_df(df)
 
-X = df[['user_id', 'item_id']].astype(np.int64)
-y = df['rating']
+#X = df[['user_id', 'item_id']].astype(np.int64)
+X = X.astype(np.int64)
+#y = df['rating']
 #X_train, X_test, y_train, y_test = split_train_test_user(X, y, random_seed=1990)
 
 
@@ -192,38 +198,74 @@ for iter in range(N_SIM):
 
     # Train Linear Regression
     enc = OneHotEncoder(sparse=False)
-    X_train_sparse = enc.fit_transform(X=X['item_id'].values.reshape(-1,1))
+    X_train_sparse = enc.fit_transform(X=X[:, 1].reshape(-1,1))
 
-    linear = LinearRegression(fit_intercept=True)
+    linear = LinearRegression(fit_intercept=False)
     linear.fit(X_train_sparse, y)
 
 
 
-    grad_linear = linear.coef_
+    grad_linear = linear.coef_.flatten()
     mrs_linear = compute_pariwise_mrs(grad_linear)
     l2_linear = mrs_error(MRS, mrs_linear)
     output['linear'].append(l2_linear)
 
 
     # Train Vanilla Wide&Deep
-    item_encoder = UtilityEncoder(n_items=stats['n_items'], h_dim_size=h_dim)
+    """item_encoder = UtilityEncoder(n_items=stats['n_items'], h_dim_size=h_dim)
 
     item_encoder.fit(X, y, batch_size, lr, n_epochs, loss_step, eps)
 
     grad_vanilla = item_encoder.get_input_grad(np.arange(N))
     mrs_vanilla = compute_pariwise_mrs(grad_vanilla.data.numpy())
     l2_vanilla = mrs_error(MRS, mrs_vanilla)
-    output['vanilla'].append(l2_vanilla)
+    output['vanilla'].append(l2_vanilla)"""
 
 
 
     # Train Neural Utility Function
-    item_encoder_utility = UtilityEncoder(n_items=stats['n_items'], h_dim_size=h_dim)
-    item_encoder_utility.fit_utility_loss(X, y, batch_size, lr, n_epochs, loss_step, eps, user_item_rating_map, \
-                                item_rating_map, k, stats['n_items'])
+    params = {
+        "h_dim_size": 256,
+        "n_epochs": 15,
+        "batch_size": 32,
+        "lr": 5e-5,
+        "eps": 1e-3,
+        "c_size": 5,
+        "s_size": 5,
+        "loss_step": 20,
+        "eval_k": 5,
+        "loss": "utility",
+        "lambda": .1
+    }
 
-    grad_utility = item_encoder_utility.get_input_grad(np.arange(N))
-    mrs_utility = compute_pariwise_mrs(grad_utility.data.numpy())
+    #item_encoder_utility = UtilityEncoder(n_items=stats['n_items'], h_dim_size=h_dim)
+    #item_encoder_utility.fit_utility_loss(X, y, batch_size, lr, n_epochs, loss_step, eps, user_item_rating_map, \
+    #                            item_rating_map, k, stats['n_items'])
+
+    encoder = UtilityEncoder(stats['n_items'], h_dim_size=params["h_dim_size"], use_cuda=False)
+
+    print("Model intialized")
+    print("Beginning Training...")
+
+    trainer = NeuralUtilityTrainer(users=X[:, 0].reshape(-1,1), items=X[:, 1].reshape(-1,1),
+                                   y_train=y, model=encoder, loss=loss_mse,
+                                   n_epochs=params['n_epochs'], batch_size=params['batch_size'],
+                                   lr=params["lr"], loss_step_print=params["loss_step"],
+                                   eps=params["eps"], item_rating_map=item_rating_map,
+                                   user_item_rating_map=user_item_rating_map,
+                                   c_size=params["c_size"], s_size=params["s_size"],
+                                   n_items=stats["n_items"], use_cuda=False,
+                                   model_name=None, model_path=None,
+                                   checkpoint=False, lmbda=params["lambda"])
+
+    _, loss= trainer.fit_utility_loss()
+    #grad_utility = trainer.get_input_grad(loss_mse, np.arange(N))
+
+    grad = torch.autograd.grad(loss, torch.from_numpy(np.eye(N)).requires_grad_(True))
+
+
+
+
     l2_utility = mrs_error(MRS, mrs_utility)
     output['utility'].append(l2_utility)
 
