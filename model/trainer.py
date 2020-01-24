@@ -306,18 +306,15 @@ class NeuralUtilityTrainer(object):
 class SequenceTrainer(NeuralUtilityTrainer):
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
-                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5):
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5,
+                 h_dim_size=None):
 
         super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
                  user_item_rating_map, item_rating_map, c_size, s_size, n_items,
                  checkpoint, model_path, model_name, X_val, y_val, lmbda)
         self.seq_len = seq_len
-        if self.use_cuda and self.n_gpu > 1:
-            self.model = nn.DataParallel(model)  # enabling data parallelism
-        else:
-            self.model = model
+        self.h_dim_size = h_dim_size
 
-        self.model.to(self.device)
 
     def get_generator(self, users, items, y_train, use_utility_loss):
 
@@ -331,7 +328,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
         if batch_size is None:
             batch_size = self.batch_size
 
-        return torch.zeros(1, batch_size, self.model.h_dim_size)
+        return torch.zeros(1, batch_size, self.h_dim_size)
 
     def fit(self):
 
