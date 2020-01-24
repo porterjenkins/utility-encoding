@@ -35,7 +35,7 @@ parser.add_argument("--lmbda", type = float, help = "Size of supplement set", de
 
 args = parser.parse_args()
 
-MODEL_NAME = "wide_deep_{}_{}".format(args.dataset, args.loss)
+MODEL_NAME = "gmf_choice_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990
