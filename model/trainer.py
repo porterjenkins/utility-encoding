@@ -388,3 +388,38 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
         self.checkpoint_model(suffix='done')
         return loss_arr
+
+    def predict(self, users, items, y=None, batch_size=32):
+
+        print("Getting predictions on device: {} - batch size: {}".format(self.device, batch_size))
+
+        self.generator.update_data(users=users, items=items,
+                                   y=y, shuffle=False,
+                                   batch_size=batch_size)
+        n = users.shape[0]
+        preds = list()
+
+        cntr = 0
+        h_init = self.model.init_hidden(batch_size)
+
+        while self.generator.epoch_cntr < 1:
+
+
+            test = self.generator.get_batch(as_tensor=True)
+
+            test['users'] = test['users'].to(self.device)
+            test['items'] = test['items'].to(self.device)
+
+            preds_batch, _ = self.model.forward(test['users'], test['items'], h_init)
+            preds_batch = preds_batch.detach().data.cpu().numpy()
+            preds.append(np.transpose(preds_batch))
+
+            progress = 100*(cntr / n)
+            print("inference progress: {:.2f}".format(progress), end='\r')
+
+            cntr += batch_size
+
+        preds = np.concatenate(preds, axis=0)
+
+
+        return preds

@@ -173,8 +173,12 @@ class SRNN(nn.Module):
             h = h.to(self.device)
         return y_hat, h
 
-    def init_hidden(self):
-        return torch.zeros(self.n_layers, self.batch_size, self.h_dim_size).to(self.device)
+    def init_hidden(self, batch_size=None):
+
+        if batch_size is None:
+            batch_size = self.batch_size
+
+        return torch.zeros(self.n_layers, batch_size, self.h_dim_size).to(self.device)
 
     def one_hot(self, input):
         self.one_hot_embedding.zero_()
