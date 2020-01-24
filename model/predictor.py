@@ -20,7 +20,8 @@ class Predictor(object):
         self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.n_items = n_items
         self.generator = self.get_generator(users, items, y)
-
+        self.n_gpu = torch.cuda.device_count()
+        
         print(self.device)
         if self.use_cuda and self.n_gpu > 1:
             self.model = nn.DataParallel(model)  # enabling data parallelism
