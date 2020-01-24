@@ -5,7 +5,7 @@ import config.config as cfg
 import torch
 import argparse
 from experiments.utils import get_test_sample_size, read_train_test_dir
-from experiments.utils import get_eval_metrics
+from experiments.utils import get_eval_metrics, get_choice_eval_metrics
 from model.predictor import Predictor
 import pandas as pd
 import numpy as np
@@ -15,14 +15,15 @@ from preprocessing.utils import load_dict_output
 parser = argparse.ArgumentParser()
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
 parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}", default="Movielens")
-
+parser.add_argument("--task", type=str, help = "'choice' or 'ratings'")
 
 args = parser.parse_args()
+
+assert args.task in ["choice", "ratings"]
 
 TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990
 EVAL_K = 5
-
 
 model_path = cfg.vals["model_dir"] + "/wide_deep_amazon_logit_done.pt"
 model = torch.load(model_path, map_location=torch.device('cpu'))
@@ -66,7 +67,18 @@ preds = predictor.predict().reshape(-1,1)
 output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
                       columns = ['user_id', 'pred', 'y_true'])
 
-output, rmse, dcg = get_eval_metrics(output, at_k=EVAL_K)
 
-print("rmse: {:.4f}".format(rmse))
-print("dcg: {:.4f}".format(dcg))
+if args.task == "choice":
+
+    output, hit_ratio, ndcg = get_choice_eval_metrics(output, at_k=EVAL_K)
+
+    print("hit ratio: {:.4f}".format(hit_ratio))
+    print("ndcg: {:.4f}".format(ndcg))
+
+else:
+
+    output, rmse, dcg = get_eval_metrics(output, at_k=EVAL_K)
+
+    print("rmse: {:.4f}".format(rmse))
+    print("dcg: {:.4f}".format(dcg))
+
