@@ -5,7 +5,7 @@ import config.config as cfg
 import torch
 import argparse
 from experiments.utils import get_test_sample_size, read_train_test_dir
-from experiments.utils import get_eval_metrics
+from experiments.utils import get_eval_metrics, get_choice_eval_metrics
 from model.predictor import Predictor
 import pandas as pd
 import numpy as np
