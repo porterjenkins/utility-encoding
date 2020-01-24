@@ -145,7 +145,7 @@ class SRNNTrainer(object):
 
 class SRNN(nn.Module):
 
-    def __init__(self, n_items, h_dim_size, gru_hidden_size, n_layers=3, use_cuda=False, batch_size=32):
+    def __init__(self, n_items, h_dim_size, gru_hidden_size, n_layers=3, use_cuda=False, batch_size=32, use_logit=False):
         super(SRNN, self).__init__()
         self.batch_size = batch_size
         self.n_items = n_items
@@ -158,8 +158,11 @@ class SRNN(nn.Module):
         self.activation = nn.Tanh()
         self.out = nn.Linear(h_dim_size, 1)
         self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
+        self.use_logit = use_logit
+        self.logistic = torch.nn.Sigmoid()
         if use_cuda:
             self = self.cuda()
+
 
     def forward(self, users, items, hidden):
         embedded = self.embedding(items)
@@ -171,6 +174,9 @@ class SRNN(nn.Module):
         if self.use_cuda:
             y_hat = y_hat.to(self.device)
             h = h.to(self.device)
+
+        if self.use_logit:
+            y_hat = self.logistic(y_hat)
         return y_hat, h
 
     def init_hidden(self, batch_size=None):

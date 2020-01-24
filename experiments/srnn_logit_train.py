@@ -7,15 +7,15 @@ from preprocessing.utils import split_train_test_user, load_dict_output
 from preprocessing.interactions import Interactions
 import numpy as np
 from baselines.s_rnn import SRNN, SRNNTrainer
-from experiments.utils import get_eval_metrics
+from experiments.utils import get_choice_eval_metrics_sequential
 import argparse
 from experiments.utils import get_test_sample_size, read_train_test_dir
 from model.trainer import SequenceTrainer
-from model._loss import loss_mse
+from model._loss import loss_mse, loss_logit
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--loss", type = str, help="loss function to optimize", default='mse')
+parser.add_argument("--loss", type = str, help="loss function to optimize", default='logit')
 parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
 parser.add_argument("--checkpoint", type = bool, help="flag to run on gpu", default=True)
 parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}", default="Movielens")
@@ -60,9 +60,9 @@ params = {
 print("Reading dataset")
 
 if args.dataset == "movielens":
-    data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
+    data_dir = cfg.vals['movielens_dir'] + "/preprocessed_choice/"
 elif args.dataset == "amazon":
-    data_dir = cfg.vals['amazon_dir'] + "/preprocessed/"
+    data_dir = cfg.vals['amazon_dir'] + "/preprocessed_choice/"
 else:
     raise ValueError("--dataset must be 'amazon' or 'movielens'")
 
@@ -89,13 +89,13 @@ sequence_users, sequences, y_seq, n_items = interactions.to_sequence(max_sequenc
 
 X = np.concatenate((sequence_users.reshape(-1, 1), sequences), axis=1)
 
-model = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
+model = SRNN(stats['n_items'], h_dim_size=params["h_dim_size"], gru_hidden_size=32, n_layers=1, use_logit=True)
 
 print("Model intialized")
 print("Beginning Training...")
 
 trainer = SequenceTrainer(users=sequence_users.reshape(-1,1), items=sequences,
-                          y_train=y_seq, model=model, loss=loss_mse,
+                          y_train=y_seq.astype(np.float32), model=model, loss=loss_logit,
                           n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                           lr=params["lr"], loss_step_print=params["loss_step"],
                           eps=params["eps"], item_rating_map=item_rating_map,
@@ -111,6 +111,31 @@ if params['loss'] == 'utility':
     print("utility loss")
     trainer.fit_utility_loss()
 else:
-    print("mse loss")
+    print("logit loss")
     trainer.fit()
+
+
+interactions = Interactions(user_ids=X_test[:, 0],
+                            item_ids=X_test[:, 1],
+                            ratings=y_test.flatten(),
+                            timestamps=X_test[:, 2],
+                            num_users=stats['n_users'],
+                            num_items=stats['n_items'])
+
+users_test, items_test, y_test_seq, _ = interactions.to_sequence(max_sequence_length=params['seq_len'],
+                                                                 min_sequence_length=params['seq_len'])
+
+n_test = get_test_sample_size(users_test.shape[0], k=TEST_BATCH_SIZE)
+users_test = users_test[:n_test].reshape(-1,1)
+items_test = items_test[:n_test, :]
+y_test_seq = y_test_seq[:n_test, :]
+
+preds = trainer.predict(users=users_test, items=items_test, y=y_test_seq,
+                        batch_size=TEST_BATCH_SIZE)
+
+output, hit_ratio, ndcg = get_choice_eval_metrics_sequential(users_test, preds, y_test_seq, params["seq_len"], params["eval_k"])
+
+print("hit ratio: {:.4f}".format(hit_ratio))
+print("ndcg: {:.4f}".format(ndcg))
+
 

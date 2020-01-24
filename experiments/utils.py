@@ -66,6 +66,24 @@ def get_choice_eval_metrics(output, at_k=5):
     return output, hit_ratio, ndcg
 
 
+def get_choice_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
+
+    pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
+    true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
+
+    output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
+                          columns=['user_id'] + pred_cols + true_cols)
+
+    pred_long = pd.melt(output[['user_id'] + pred_cols], id_vars='user_id', value_vars=pred_cols, value_name='pred')
+    true_long = pd.melt(output[['user_id'] + true_cols], id_vars='user_id', value_vars=true_cols, value_name='y_true')
+
+    output = pd.concat([pred_long[['user_id', 'pred']], true_long['y_true']], axis=1)
+
+    output, hit_ratio, ndcg = get_choice_eval_metrics(output, at_k=eval_k)
+
+    return output, hit_ratio, ndcg
+
+
 def get_test_batch_size(n):
 
     b = 50
