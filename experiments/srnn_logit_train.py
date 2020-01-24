@@ -122,8 +122,8 @@ interactions = Interactions(user_ids=X_test[:, 0],
                             num_users=stats['n_users'],
                             num_items=stats['n_items'])
 
-users_test, items_test, y_test_seq, _ = interactions.to_sequence(max_sequence_length=params['seq_len'],
-                                                                 min_sequence_length=params['seq_len'])
+users_test, items_test, y_test_seq, _ = interactions.to_sequence(max_sequence_length=5,
+                                                                 min_sequence_length=5)
 
 n_test = get_test_sample_size(users_test.shape[0], k=TEST_BATCH_SIZE)
 users_test = users_test[:n_test].reshape(-1,1)
