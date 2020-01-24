@@ -332,7 +332,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
     def fit(self):
 
-        h_init = self.init_hidden().to(self.device)
+        h_init = self.init_hidden(batch_size=self.batch_size).to(self.device)
 
         self.print_device_specs()
 
@@ -359,6 +359,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
             self.optimizer.zero_grad()
 
             y_hat, h = self.model.forward(batch['users'], batch['items'], h_init)
+            h = h.to(self.device)
             y_hat = torch.transpose(y_hat, 0, 1).to(self.device)
             loss = self.loss(y_true=batch['y'], y_hat=y_hat)
 

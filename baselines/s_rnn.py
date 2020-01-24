@@ -171,9 +171,6 @@ class SRNN(nn.Module):
         # o = o.view(-1, o.size(-1))
 
         y_hat = torch.squeeze(self.activation(self.out(o)))
-        if self.use_cuda:
-            y_hat = y_hat.to(self.device)
-            h = h.to(self.device)
 
         if self.use_logit:
             y_hat = self.logistic(y_hat)
