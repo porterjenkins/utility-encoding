@@ -46,7 +46,7 @@ print("Dataset read complete...")
 
 
 
-n_test = 1000
+n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 

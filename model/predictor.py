@@ -35,9 +35,9 @@ class Predictor(object):
 
             return Generator(users, items, y_train, batch_size=self.batch_size, n_item=self.n_items, shuffle=False)
 
-    def predict(self, batch_size=32):
+    def predict(self):
 
-        print("Getting predictions on device: {} - batch size: {}".format(self.device, batch_size))
+        print("Getting predictions on device: {} - batch size: {}".format(self.device, self.batch_size))
 
         n = self.users.shape[0]
         preds = list()
@@ -57,7 +57,7 @@ class Predictor(object):
             progress = 100*(cntr / n)
             print("inference progress: {:.2f}".format(progress), end='\r')
 
-            cntr += batch_size
+            cntr += self.batch_size
 
         preds = np.concatenate(preds, axis=0)
 
