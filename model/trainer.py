@@ -312,6 +312,12 @@ class SequenceTrainer(NeuralUtilityTrainer):
                  user_item_rating_map, item_rating_map, c_size, s_size, n_items,
                  checkpoint, model_path, model_name, X_val, y_val, lmbda)
         self.seq_len = seq_len
+        if self.use_cuda and self.n_gpu > 1:
+            self.model = nn.DataParallel(model)  # enabling data parallelism
+        else:
+            self.model = model
+
+        self.model.to(self.device)
 
     def get_generator(self, users, items, y_train, use_utility_loss):
 
