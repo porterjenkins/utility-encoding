@@ -320,10 +320,16 @@ class SequenceTrainer(NeuralUtilityTrainer):
                                     item_rating_map=self.item_rating_map, shuffle=True,
                                     c_size=self.c_size, s_size=self.s_size, n_item=self.n_items,seq_len=self.seq_len)
 
+    def init_hidden(self, batch_size=None):
+
+        if batch_size is None:
+            batch_size = self.batch_size
+
+        return torch.zeros(self.model.n_layers, batch_size, self.model.h_dim_size).to(self.device)
 
     def fit(self):
 
-        h_init = self.model.init_hidden()
+        h_init = self.init_hidden()
 
         self.print_device_specs()
 
@@ -400,7 +406,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
         preds = list()
 
         cntr = 0
-        h_init = self.model.init_hidden(batch_size)
+        h_init = self.init_hidden(batch_size)
 
         while self.generator.epoch_cntr < 1:
 
