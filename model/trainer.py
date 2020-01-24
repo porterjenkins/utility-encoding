@@ -331,7 +331,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
         if batch_size is None:
             batch_size = self.batch_size
 
-        return torch.zeros(self.model.n_layers, batch_size, self.model.h_dim_size).to(self.device)
+        return torch.zeros(1, batch_size, self.model.h_dim_size).to(self.device)
 
     def fit(self):
 
