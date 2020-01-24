@@ -26,12 +26,14 @@ class Generator(object):
         self.curr_idx = 0
         self.epoch_cntr = 0
         self.n_item = n_item if n_item else items.max()
-        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
-        self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
+        self.one_hot_items, self.items = self._get_item_one_hot(items)
         self.idx = self._get_index()
 
 
-
+    def _get_item_one_hot(self, items):
+        one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
+        items = one_hot_items.fit_transform(items).astype(np.float32)
+        return one_hot_items, items
 
     def update_data(self, users, items, y, shuffle, batch_size):
         self.users = users
@@ -119,7 +121,7 @@ class CoocurrenceGenerator(Generator):
     """
 
 
-    def __init__(self,users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
+    def __init__(self, users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
         super().__init__(users, items, y, batch_size, shuffle, n_item)
         self.user_item_rating_map = user_item_rating_map
         self.item_rating_map = item_rating_map
@@ -209,10 +211,18 @@ class CoocurrenceGenerator(Generator):
 
 class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
-    def __init__(self, X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item, seq_len):
-
-        super().__init__(X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item)
+    def __init__(self, users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size,
+                 n_item, seq_len):
         self.seq_len = seq_len
+        super().__init__(users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item)
+
+
+
+    def _get_item_one_hot(self, items):
+        categories = [range(self.n_item)]*self.seq_len
+        one_hot_items = OneHotEncoder(categories=categories, sparse=True)
+        items = one_hot_items.fit_transform(items).astype(np.float32)
+        return one_hot_items, items
 
     def get_complement_set(self, x_batch):
 
@@ -268,6 +278,28 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
                 y_s[i, ts, :] = y_s_set
 
         return X_s, y_s
+
+    def get_batch(self, as_tensor=False):
+
+        b = super(CoocurrenceGenerator, self).get_batch(False)
+
+        b["items"] = np.array(b["items"].todense()).reshape(self.batch_size, self.seq_len, self.n_item)
+
+        #X_c, y_c = self.get_complement_set(b['users'], b['items'])
+        #X_s, y_s = self.get_supp_set(b['users'], b['items'])
+
+
+
+        if as_tensor:
+            b['items'] = torch.from_numpy(b['items'])
+            b['users'] = torch.from_numpy(b['users'])
+            b['y'] = torch.from_numpy(b['y'])
+            #X_c = torch.from_numpy(X_c)
+            #X_s = torch.from_numpy(X_s)
+            #y_c = torch.from_numpy(y_c)
+
+        return b
+
 
 
 

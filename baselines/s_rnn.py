@@ -17,7 +17,8 @@ from model._loss import mrs_loss, utility_loss, loss_mse
 
 
 class SRNNTrainer(object):
-    def __init__(self, srnn, data, params, use_cuda=False, use_utility_loss=False, user_item_rating_map=None, item_rating_map=None, k=None):
+    def __init__(self, srnn, data, params, use_cuda=False, use_utility_loss=False, user_item_rating_map=None,
+                 item_rating_map=None, k=None, n_items=None):
         self.srnn = srnn
         self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.use_utility_loss = use_utility_loss
@@ -26,6 +27,7 @@ class SRNNTrainer(object):
         self.item_rating_map = item_rating_map
         self.k = k
         self.batch_size = params['batch_size']
+        self.n_items = n_items
 
         self.h_dim = params['h_dim']
         self.n_epochs = params['n_epochs']
@@ -39,7 +41,7 @@ class SRNNTrainer(object):
     def train(self):
         X = self.data[0]
         y = self.data[1]
-        self.X_train, self.X_test, self.y_train, self.y_test = split_train_test_user(X, y, random_seed=1990)
+
 
 
         gen = self.generator(self.X_train, self.y_train)
@@ -159,8 +161,8 @@ class SRNN(nn.Module):
         if use_cuda:
             self = self.cuda()
 
-    def forward(self, input, hidden):
-        embedded = self.embedding(input)
+    def forward(self, users, items, hidden):
+        embedded = self.embedding(items)
         #embedded = embedded.unsqueeze(0)
         o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1), hidden)
         # o = o.view(-1, o.size(-1))
