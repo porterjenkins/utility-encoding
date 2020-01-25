@@ -8,7 +8,7 @@ class FeaturesLinear(torch.nn.Module):
 
     def __init__(self, field_dims, output_dim=1):
         super().__init__()
-        self.fc = EmbeddingGrad(field_dims, output_dim)
+        self.fc = EmbeddingGrad(sum(field_dims), output_dim)
         self.bias = torch.nn.Parameter(torch.zeros((output_dim,)))
         self.offsets = np.array((0, *np.cumsum(field_dims)[:-1]), dtype=np.long)
 
@@ -17,7 +17,7 @@ class FeaturesLinear(torch.nn.Module):
         :param x: Long tensor of size ``(batch_size, num_fields)``
         """
         x = x + x.new_tensor(self.offsets).unsqueeze(0)
-        return torch.sum(self.fc(x), dim=-1) + self.bias
+        return torch.sum(self.fc(x), dim=1) + self.bias
 
 
 class FeaturesSparseLinear(torch.nn.Module):
@@ -40,7 +40,7 @@ class FeaturesEmbedding(torch.nn.Module):
 
     def __init__(self, field_dims, embed_dim):
         super().__init__()
-        self.embedding = EmbeddingGrad(field_dims, embed_dim)
+        self.embedding = EmbeddingGrad(sum(field_dims), embed_dim)
         self.offsets = np.array((0, *np.cumsum(field_dims)[:-1]), dtype=np.long)
         torch.nn.init.xavier_uniform_(self.embedding.weights.weight.data)
 
