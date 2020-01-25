@@ -179,12 +179,6 @@ class SRNN(nn.Module):
             y_hat = self.logistic(y_hat)
         return y_hat, h
 
-    def init_hidden(self, batch_size=None):
-
-        if batch_size is None:
-            batch_size = self.batch_size
-
-        return torch.zeros(self.n_layers, batch_size, self.h_dim_size).to(self.device)
 
     def one_hot(self, input):
         self.one_hot_embedding.zero_()
