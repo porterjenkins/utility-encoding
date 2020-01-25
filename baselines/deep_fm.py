@@ -31,6 +31,10 @@ class DeepFM(torch.nn.Module):
         x_linear = self.linear(items).unsqueeze(dim=-1)
         x_fm = self.fm(embed_x).unsqueeze(dim=-1)
         x_mlp = self.mlp(embed_x.view(-1, self.embed_output_dim))
+
+        if items.ndim == 3:
+            x_mlp = x_mlp.view(items.shape[0], items.shape[1], -1)
+
         output = x_linear + x_fm + x_mlp
 
         if self.use_logit:

@@ -17,7 +17,7 @@ class FeaturesLinear(torch.nn.Module):
         :param x: Long tensor of size ``(batch_size, num_fields)``
         """
         x = x + x.new_tensor(self.offsets).unsqueeze(0)
-        return torch.sum(self.fc(x), dim=1) + self.bias
+        return torch.sum(self.fc(x), dim=-1) + self.bias
 
 
 class FeaturesSparseLinear(torch.nn.Module):
