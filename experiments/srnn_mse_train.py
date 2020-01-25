@@ -104,7 +104,7 @@ trainer = SequenceTrainer(users=sequence_users.reshape(-1,1), items=sequences,
                           n_items=stats["n_items"], use_cuda=args.cuda,
                           model_name=MODEL_NAME, model_path=MODEL_DIR,
                           checkpoint=args.checkpoint, lmbda=params["lambda"],
-                          seq_len=params["seq_len"])
+                          seq_len=params["seq_len"], h_dim_size=params["h_dim_size"])
 
 
 if params['loss'] == 'utility':
