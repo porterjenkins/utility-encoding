@@ -36,7 +36,7 @@ args = parser.parse_args()
 
 MODEL_NAME = "srnn_logit_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
-TEST_BATCH_SIZE = 100
+TEST_BATCH_SIZE = 5
 RANDOM_SEED = 1990
 LOSS_STEP = 50
 EVAL_K = 5
@@ -115,6 +115,15 @@ else:
     trainer.fit()
 
 
+# subsample test data
+
+from sklearn.model_selection import train_test_split
+
+_, X_test, _, y_test = train_test_split(X_test, y_test, test_size=params["seq_len"]*stats["n_users"], stratify=X_test[:, 0], random_state=RANDOM_SEED)
+
+#pd.DataFrame(X_test, columns=['user', 'item', 'ts']).sort_values(by=['user', 'ts'])
+tmp = pd.DataFrame(np.concatenate([X_test, y_test.reshape(-1,1)], axis=1), columns = ['user', 'item', 'ts', 'y']).sort_values(by=['user', 'ts'])
+
 interactions = Interactions(user_ids=X_test[:, 0],
                             item_ids=X_test[:, 1],
                             ratings=y_test.flatten(),
@@ -122,8 +131,8 @@ interactions = Interactions(user_ids=X_test[:, 0],
                             num_users=stats['n_users'],
                             num_items=stats['n_items'])
 
-users_test, items_test, y_test_seq, _ = interactions.to_sequence(max_sequence_length=5,
-                                                                 min_sequence_length=5)
+users_test, items_test, y_test_seq, _ = interactions.to_sequence(max_sequence_length=params["seq_len"],
+                                                                 min_sequence_length=params["seq_len"])
 
 n_test = get_test_sample_size(users_test.shape[0], k=TEST_BATCH_SIZE)
 users_test = users_test[:n_test].reshape(-1,1)

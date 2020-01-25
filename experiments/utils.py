@@ -66,6 +66,26 @@ def get_choice_eval_metrics(output, at_k=5):
     return output, hit_ratio, ndcg
 
 
+def get_choice_eval_sequential(output, at_k=5):
+
+    output.sort_values(by=['user_id', 'pred'], inplace=True, ascending=False)
+    output = output.groupby('user_id').head(at_k)
+
+
+    output['rank'] = output[['user_id', 'pred']].groupby('user_id').rank(method='first', ascending=False).astype(float)
+    output['dcg'] = (np.power(2, output['y_true']) - 1) / np.log2(output['rank'] + 1)
+
+    results = output[['user_id', 'y_true', 'dcg']].groupby("user_id").sum().mean()
+
+
+
+    ndcg = results['dcg']
+    hit_ratio = results['y_true']
+
+
+    return output, hit_ratio, ndcg
+
+
 def get_choice_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
 
     pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
@@ -79,7 +99,7 @@ def get_choice_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_
 
     output = pd.concat([pred_long[['user_id', 'pred']], true_long['y_true']], axis=1)
 
-    output, hit_ratio, ndcg = get_choice_eval_metrics(output, at_k=eval_k)
+    output, hit_ratio, ndcg = get_choice_eval_sequential(output, at_k=eval_k)
 
     return output, hit_ratio, ndcg
 

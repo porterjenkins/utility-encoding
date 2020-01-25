@@ -102,8 +102,8 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
     n_users = len(np.unique(df['user_id']))
 
-    X_test_pos = np.zeros((n_users, 2))
-    X_test_neg = np.zeros((n_users*test_size_per_user, 2))
+    X_test_pos = np.zeros((n_users, 3))
+    X_test_neg = np.zeros((n_users*test_size_per_user, 3))
 
     X_train_list = []
 
@@ -129,7 +129,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
         user_n = user_data.shape[0]
 
         user_data_train = user_data.iloc[:user_n-1, :]
-        user_data_test = user_data.values[user_n-1, :2]
+        user_data_test = user_data.values[user_n-1, :]
 
         # add user_id to map
         if user_id not in user_id_map:
@@ -151,6 +151,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
         #X_test_pos[test_row_idx, :] = user_data_test
         X_test_pos[test_row_idx, 0] = user_id_map[user_data_test[0]]
         X_test_pos[test_row_idx, 1] = item_id_map[user_data_test[1]]
+        X_test_pos[test_row_idx, 2] = 0.0
 
         user_output = np.zeros_like(user_data_train)
 
@@ -210,6 +211,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
         neg_sample_cntr = 0
 
+        time_stamp = 1
         while neg_sample_cntr < test_size_per_user:
 
             neg_sample = np.random.randint(0, stats["n_items"], size=1)[0]
@@ -219,10 +221,12 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
                 # store in test set vector
                 X_test_neg[test_set_neg_idx, 0] = user
                 X_test_neg[test_set_neg_idx, 1] = neg_sample
+                X_test_neg[test_set_neg_idx, 2] = time_stamp
 
 
                 neg_sample_cntr += 1
                 test_set_neg_idx += 1
+                time_stamp += 1
 
                 print("progress: {:.4f}%".format((test_set_neg_idx / (n_users*test_size_per_user)) * 100), end='\r')
 
