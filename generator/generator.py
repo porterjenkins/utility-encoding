@@ -224,37 +224,36 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
         items = one_hot_items.fit_transform(items).astype(np.float32)
         return one_hot_items, items
 
-    def get_complement_set(self, x_batch):
+    def get_complement_set(self, users, items):
 
-        X_c = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.int64)
-        y_c = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.float64)
+        X_c = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
+        y_c = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
 
-        users = x_batch[:, 0]
 
         for i, user_id in enumerate(users):
-            item_ratings = self.user_item_rating_map[user_id]
+            item_ratings = self.user_item_rating_map[user_id[0]]
+
 
             for ts in range(self.seq_len):
 
-                items = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
+                items_sampled = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
 
-                X_c[i, ts, :] = items
+                X_c[i, ts, :] = items_sampled
 
-                for j, item in enumerate(items):
+                for j, item in enumerate(items_sampled):
                     y_c[i, ts, j] = item_ratings[item]
 
         return X_c, y_c
 
 
-    def get_supp_set(self, x_batch):
+    def get_supp_set(self, users, items):
 
-        X_s = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.int64)
-        y_s = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.float64)
+        X_s = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
+        y_s = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
 
-        users = x_batch[:, 0]
 
         for i, user_id in enumerate(users):
-            user_items = list(self.user_item_rating_map[user_id].keys())
+            user_items = list(self.user_item_rating_map[user_id[0]].keys())
 
             for ts in range(self.seq_len):
 
@@ -267,7 +266,13 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
                     if item not in user_items:
                         s_set[supp_cntr] = item
 
-                        n_ratings = len(self.item_rating_map[item])
+                        # handle case where item appears in test data, but not training data
+                        try:
+                            item_ratings = self.item_rating_map[item]
+                        except KeyError:
+                            continue
+
+                        n_ratings = len(item_ratings)
                         ratings_idx = np.random.randint(0, n_ratings, 1)[0]
                         y_s_set[supp_cntr] = self.item_rating_map[item][ratings_idx]
 
@@ -285,20 +290,27 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
         b["items"] = np.array(b["items"].todense()).reshape(self.batch_size, self.seq_len, self.n_item)
 
-        #X_c, y_c = self.get_complement_set(b['users'], b['items'])
-        #X_s, y_s = self.get_supp_set(b['users'], b['items'])
-
-
+        X_c, y_c = self.get_complement_set(b['users'], b['items'])
+        X_s, y_s = self.get_supp_set(b['users'], b['items'])
 
         if as_tensor:
             b['items'] = torch.from_numpy(b['items'])
             b['users'] = torch.from_numpy(b['users'])
             b['y'] = torch.from_numpy(b['y'])
-            #X_c = torch.from_numpy(X_c)
-            #X_s = torch.from_numpy(X_s)
-            #y_c = torch.from_numpy(y_c)
+            X_c = torch.from_numpy(X_c)
+            X_s = torch.from_numpy(X_s)
+            y_c = torch.from_numpy(y_c)
+            y_s = torch.from_numpy(y_s)
 
-        return b
+        batch = {'users': b['users'],
+                 'items': b['items'],
+                 'y': b['y'],
+                 'x_c': X_c,
+                 'y_c': y_c,
+                 'x_s': X_s,
+                 'y_s': y_s}
+
+        return batch
 
 
 
