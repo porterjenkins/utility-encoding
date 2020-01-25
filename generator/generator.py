@@ -226,7 +226,7 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
     def get_complement_set(self, users, items):
 
-        X_c = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
+        X_c = np.zeros((users.shape[0], self.seq_len, self.c_size, self.n_item), dtype=np.float32)
         y_c = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
 
 
@@ -238,9 +238,9 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
                 items_sampled = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
 
-                X_c[i, ts, :] = items_sampled
 
                 for j, item in enumerate(items_sampled):
+                    X_c[i, ts, j, int(item)] = 1.0
                     y_c[i, ts, j] = item_ratings[item]
 
         return X_c, y_c
@@ -248,7 +248,7 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
     def get_supp_set(self, users, items):
 
-        X_s = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
+        X_s = np.zeros((users.shape[0], self.seq_len, self.c_size, self.n_item), dtype=np.float32)
         y_s = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
 
 
@@ -276,11 +276,16 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
                         ratings_idx = np.random.randint(0, n_ratings, 1)[0]
                         y_s_set[supp_cntr] = self.item_rating_map[item][ratings_idx]
 
+                        X_s[i, ts, supp_cntr, item] = 1
+                        y_s[i, ts, supp_cntr] = item_ratings[ratings_idx]
+
+                        supp_cntr += 1
+
                         supp_cntr +=1
 
 
-                X_s[i, ts, :] = s_set
-                y_s[i, ts, :] = y_s_set
+                #X_s[i, ts, :] = s_set
+                #y_s[i, ts, :] = y_s_set
 
         return X_s, y_s
 
