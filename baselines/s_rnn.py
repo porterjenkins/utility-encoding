@@ -164,16 +164,13 @@ class SRNN(nn.Module):
             self = self.cuda()
 
 
-    def forward(self, users, items, hidden):
+    def forward(self, users, items):
         embedded = self.embedding(items)
         #embedded = embedded.unsqueeze(0)
-        o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1), hidden)
+        o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1))
         # o = o.view(-1, o.size(-1))
 
         y_hat = torch.squeeze(self.activation(self.out(o)))
-        if self.use_cuda:
-            y_hat = y_hat.to(self.device)
-            h = h.to(self.device)
 
         if self.use_logit:
             y_hat = self.logistic(y_hat)

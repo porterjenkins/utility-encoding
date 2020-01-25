@@ -15,7 +15,7 @@ class NeuralUtilityTrainer(object):
 
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
-                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1):
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, parallel=True):
         self.users = users
         self.items = items
         self.y_train = y_train
@@ -40,11 +40,13 @@ class NeuralUtilityTrainer(object):
         self.lmbda=lmbda
 
         print(self.device)
-        if self.use_cuda and self.n_gpu > 1:
+
+        if self.use_cuda and self.n_gpu > 1 and parallel:
             self.model = nn.DataParallel(model)  # enabling data parallelism
+            print("Parallel processing enabled")
         else:
             self.model = model
-
+    
         self.model.to(self.device)
 
         if model_name is None:
@@ -307,13 +309,12 @@ class SequenceTrainer(NeuralUtilityTrainer):
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5,
-                 h_dim_size=None):
+                 parallel=False):
 
         super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
                  user_item_rating_map, item_rating_map, c_size, s_size, n_items,
-                 checkpoint, model_path, model_name, X_val, y_val, lmbda)
+                 checkpoint, model_path, model_name, X_val, y_val, lmbda, parallel)
         self.seq_len = seq_len
-        self.h_dim_size = h_dim_size
 
 
     def get_generator(self, users, items, y_train, use_utility_loss):
@@ -332,7 +333,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
     def fit(self):
 
-        h_init = self.init_hidden().to(self.device)
+        #h_init = self.init_hidden(batch_size=self.batch_size).to(self.device)
 
         self.print_device_specs()
 
@@ -358,7 +359,8 @@ class SequenceTrainer(NeuralUtilityTrainer):
             # zero gradient
             self.optimizer.zero_grad()
 
-            y_hat, h = self.model.forward(batch['users'], batch['items'], h_init)
+            y_hat, h = self.model.forward(batch['users'], batch['items'])
+            h = h.to(self.device)
             y_hat = torch.transpose(y_hat, 0, 1).to(self.device)
             loss = self.loss(y_true=batch['y'], y_hat=y_hat)
 
@@ -409,7 +411,6 @@ class SequenceTrainer(NeuralUtilityTrainer):
         preds = list()
 
         cntr = 0
-        h_init = self.init_hidden(batch_size)
 
         while self.generator.epoch_cntr < 1:
 
@@ -419,7 +420,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
             test['users'] = test['users'].to(self.device)
             test['items'] = test['items'].to(self.device)
 
-            preds_batch, _ = self.model.forward(test['users'], test['items'], h_init)
+            preds_batch, _ = self.model.forward(test['users'], test['items'])
             preds_batch = preds_batch.detach().data.cpu().numpy()
             preds.append(np.transpose(preds_batch))
 
