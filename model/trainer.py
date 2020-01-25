@@ -400,7 +400,103 @@ class SequenceTrainer(NeuralUtilityTrainer):
         self.checkpoint_model(suffix='done')
         return loss_arr"""
 
+    def fit_utility_loss(self):
 
+        self.print_device_specs()
+
+        if self.X_val is not None:
+            _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        self.generator = self.get_generator(self.users, self.items, self.y_train, True)
+
+        while self.generator.epoch_cntr < self.n_epochs:
+
+            batch = self.generator.get_batch(as_tensor=True)
+
+            batch['y'] = batch['y'].to(self.device)
+            batch['y_c'] = batch['y_c'].to(self.device)
+            batch['y_s'] = batch['y_s'].to(self.device)
+
+            batch['items'] = batch['items'].requires_grad_(True).to(self.device)
+            batch['x_c'] = batch['x_c'].requires_grad_(True).to(self.device)
+            batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
+            batch['users'] = batch['users'].to(self.device)
+
+            y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+
+            batch["x_c"] = batch["x_c"].view(self.batch_size, self.c_size*self.seq_len, -1)
+            y_hat_c = self.model.forward(batch['users'], batch['x_c']).to(self.device)
+            y_hat_c = y_hat_c.view(self.batch_size, self.seq_len, self.c_size)
+
+
+
+            batch["x_s"] = batch["x_s"].view(self.batch_size, self.s_size * self.seq_len, -1)
+            y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device)
+            y_hat_s = y_hat_s.view(self.batch_size, self.seq_len, self.s_size)
+
+
+            # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
+            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s),
+                                  batch['y'], batch['y_c'], batch['y_s'])
+
+
+            if self.n_gpu > 1:
+                loss_u = loss_u.mean()
+
+
+            x_grad = self.get_input_grad(loss_u, batch['items'])
+            x_c_grad = self.get_input_grad(loss_u, batch['x_c'])
+            x_s_grad = self.get_input_grad(loss_u, batch['x_s'])
+
+            #x_grad = x_grad.view(self.batch_size, self.seq_len)
+            x_c_grad = x_c_grad.view(self.batch_size, self.seq_len, self.c_size)
+            x_s_grad = x_s_grad.view(self.batch_size, self.seq_len, self.s_size)
+
+
+            loss = mrs_loss(loss_u, x_grad.unsqueeze(-1), x_c_grad, x_s_grad, lmbda=self.lmbda)
+
+            if self.n_gpu > 1:
+                loss = loss.mean()
+
+
+            loss.backward()
+            self.optimizer.step()
+            loss = loss.detach()
+            cum_loss += loss
+
+            if iter % self.loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / self.loss_step
+                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < self.eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            if self.generator.check():
+                # Check if epoch is ending. Checkpoint and get evaluation metrics
+                self.checkpoint_model(suffix=iter)
+                if self.X_val is not None:
+                    _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+            iter += 1
+
+        self.checkpoint_model(suffix='done')
+        return loss_arr
 
 
     def predict(self, users, items, y=None, batch_size=32):

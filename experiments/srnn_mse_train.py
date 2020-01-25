@@ -88,6 +88,7 @@ sequence_users, sequences, y_seq, n_items = interactions.to_sequence(max_sequenc
                                                                  min_sequence_length=params['seq_len'])
 
 X = np.concatenate((sequence_users.reshape(-1, 1), sequences), axis=1)
+y_seq = y_seq.astype(np.float32)
 
 model = SRNN(stats['n_items'], h_dim_size=256, gru_hidden_size=32, n_layers=1)
 
