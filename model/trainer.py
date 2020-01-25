@@ -331,7 +331,7 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
         return torch.zeros(1, batch_size, self.h_dim_size)
 
-    def fit(self):
+    """def fit(self):
 
         #h_init = self.init_hidden(batch_size=self.batch_size).to(self.device)
 
@@ -398,7 +398,10 @@ class SequenceTrainer(NeuralUtilityTrainer):
             iter += 1
 
         self.checkpoint_model(suffix='done')
-        return loss_arr
+        return loss_arr"""
+
+
+
 
     def predict(self, users, items, y=None, batch_size=32):
 
@@ -420,9 +423,9 @@ class SequenceTrainer(NeuralUtilityTrainer):
             test['users'] = test['users'].to(self.device)
             test['items'] = test['items'].to(self.device)
 
-            preds_batch, _ = self.model.forward(test['users'], test['items'])
+            preds_batch = self.model.forward(test['users'], test['items'])
             preds_batch = preds_batch.detach().data.cpu().numpy()
-            preds.append(np.transpose(preds_batch))
+            preds.append(preds_batch)
 
             progress = 100*(cntr / n)
             print("inference progress: {:.2f}".format(progress), end='\r')

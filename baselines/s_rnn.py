@@ -174,7 +174,7 @@ class SRNN(nn.Module):
 
         if self.use_logit:
             y_hat = self.logistic(y_hat)
-        return y_hat, h
+        return torch.transpose(y_hat, 0, 1)
 
 
     def one_hot(self, input):
