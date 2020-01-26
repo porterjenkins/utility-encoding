@@ -39,8 +39,8 @@ class Generator(object):
         self.y = y
         self.shuffle = shuffle
         self.batch_size = batch_size
-        self.idx = self._get_index()
         self.n_samples = self.users.shape[0]
+        self.idx = self._get_index()
         self.curr_idx = 0
         self.epoch_cntr = 0
 
@@ -94,6 +94,11 @@ class Generator(object):
 
         batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
         items = self.items[batch_idx, :]
+
+        import numpy as np
+        if items.dtype == np.float64:
+            stop = 0
+
         users = self.users[batch_idx, :]
         y_batch = self.y[batch_idx, :]
         self.update_curr_idx()

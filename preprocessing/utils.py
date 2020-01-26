@@ -309,7 +309,6 @@ def get_amazon_datasets(data_dir):
                 "style",
                 "image"
             ])
-
             data_list.append(df)
 
     data_all = pd.concat(data_list)
