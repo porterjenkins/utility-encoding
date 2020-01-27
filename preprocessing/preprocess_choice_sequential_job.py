@@ -68,9 +68,6 @@ df.sort_values(by=['user_id', 'timestamp'], inplace=True)
 df['rating'] = 1.0
 
 
-#X_train, X_test, y_train, y_test = train_test_split(df[['user_id', 'item_id', 'timestamp']], df[['rating']],
-#                                                    test_size=TEST_SIZE, stratify=df["user_id"].values.reshape(-1,1),
-#                                                    random_state=RANDOM_SEED, shuffle=False)
 
 X_train, X_test, y_train, y_test = split_train_test_sequential(df, n_items=stats["n_items"], n_users=stats["n_users"],
                                                                test_user_size=args.test_user_size)

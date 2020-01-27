@@ -89,16 +89,15 @@ def get_choice_eval_sequential(output, at_k=5):
 
 def get_choice_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
 
-    pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
-    true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
+    #pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
+    #true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
 
-    output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
-                          columns=['user_id'] + pred_cols + true_cols)
+    y_test_ts = y_test[:, seq_len-1].reshape(-1,1)
+    preds_ts = preds[:, seq_len-1].reshape(-1,1)
 
-    pred_long = pd.melt(output[['user_id'] + pred_cols], id_vars='user_id', value_vars=pred_cols, value_name='pred')
-    true_long = pd.melt(output[['user_id'] + true_cols], id_vars='user_id', value_vars=true_cols, value_name='y_true')
 
-    output = pd.concat([pred_long[['user_id', 'pred']], true_long['y_true']], axis=1)
+    output = pd.DataFrame(np.concatenate((users_test, preds_ts, y_test_ts), axis=1),
+                          columns=['user_id', 'pred', 'y_true'])
 
     output, hit_ratio, ndcg = get_choice_eval_sequential(output, at_k=eval_k)
 
@@ -158,3 +157,21 @@ def log_output(out_dir, model_name, params, output):
 
         for i in output:
             f.write("{:.4f}\n".format(i))
+
+
+
+def read_train_test_dir_sequential(dir):
+
+    x_train = pd.read_csv(dir + "/x_train.csv")
+    x_train = x_train.values.astype(np.int64)
+
+
+    x_test = pd.read_csv(dir + "/x_test.csv")
+
+
+    y_train = pd.read_csv(dir + "/y_train.csv").values.reshape(-1,1).astype(np.float32)
+    y_test = pd.read_csv(dir + "/y_test.csv")
+
+
+
+    return x_train, x_test, y_train, y_test

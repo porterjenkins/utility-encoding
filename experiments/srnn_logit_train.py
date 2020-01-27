@@ -9,7 +9,7 @@ import numpy as np
 from baselines.s_rnn import SRNN, SRNNTrainer
 from experiments.utils import get_choice_eval_metrics_sequential
 import argparse
-from experiments.utils import get_test_sample_size, read_train_test_dir, log_output
+from experiments.utils import get_test_sample_size, read_train_test_dir_sequential, log_output
 from model.trainer import SequenceTrainer
 from model._loss import loss_mse, loss_logit
 
@@ -36,7 +36,7 @@ args = parser.parse_args()
 
 MODEL_NAME = "srnn_logit_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
-TEST_BATCH_SIZE = 5
+TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990
 LOSS_STEP = 50
 EVAL_K = 5
@@ -60,15 +60,15 @@ params = {
 print("Reading dataset")
 
 if args.dataset == "movielens":
-    data_dir = cfg.vals['movielens_dir'] + "/preprocessed_choice/"
+    data_dir = cfg.vals['movielens_dir'] + "/preprocessed_choice_sequential/"
 elif args.dataset == "amazon":
-    data_dir = cfg.vals['amazon_dir'] + "/preprocessed_choice/"
+    data_dir = cfg.vals['amazon_dir'] + "/preprocessed_choice_sequential/"
 else:
     raise ValueError("--dataset must be 'amazon' or 'movielens'")
 
 
 
-X_train, X_test, y_train, y_test = read_train_test_dir(data_dir, drop_ts=False)
+X_train, X_test, y_train, y_test = read_train_test_dir_sequential(data_dir)
 
 user_item_rating_map = load_dict_output(data_dir, "user_item_rating.json", True)
 item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
@@ -115,29 +115,15 @@ else:
     trainer.fit()
 
 
-# subsample test data
-
-from sklearn.model_selection import train_test_split
-
-_, X_test, _, y_test = train_test_split(X_test, y_test, test_size=params["seq_len"]*stats["n_users"], stratify=X_test[:, 0], random_state=RANDOM_SEED)
-
-#pd.DataFrame(X_test, columns=['user', 'item', 'ts']).sort_values(by=['user', 'ts'])
-tmp = pd.DataFrame(np.concatenate([X_test, y_test.reshape(-1,1)], axis=1), columns = ['user', 'item', 'ts', 'y']).sort_values(by=['user', 'ts'])
-
-interactions = Interactions(user_ids=X_test[:, 0],
-                            item_ids=X_test[:, 1],
-                            ratings=y_test.flatten(),
-                            timestamps=X_test[:, 2],
-                            num_users=stats['n_users'],
-                            num_items=stats['n_items'])
-
-users_test, items_test, y_test_seq, _ = interactions.to_sequence(max_sequence_length=params["seq_len"],
-                                                                 min_sequence_length=params["seq_len"])
+users_test = X_test.iloc[:, 0].values.reshape(-1,1).astype(np.int64)
+items_test = X_test.iloc[:, 2:].astype(np.int64)
+seq_ids = X_test.iloc[:, 1].values.reshape(-1,1)
+y_test_seq = y_test.iloc[:, 2:].values.astype(np.float32)
 
 n_test = get_test_sample_size(users_test.shape[0], k=TEST_BATCH_SIZE)
-users_test = users_test[:n_test].reshape(-1,1)
-items_test = items_test[:n_test, :]
-y_test_seq = y_test_seq[:n_test, :]
+users_test = users_test[:n_test]
+items_test = items_test[:n_test]
+y_test_seq = y_test_seq[:n_test]
 
 preds = trainer.predict(users=users_test, items=items_test, y=y_test_seq,
                         batch_size=TEST_BATCH_SIZE)

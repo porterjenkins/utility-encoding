@@ -345,6 +345,7 @@ def split_train_test_sequential(df, n_items, n_users, seq_len=4, test_user_size=
 
         test_user_true = user_data.iloc[(train_idx-seq_len + 1):(train_idx+1), :]
         test_user_true['seq_id'] = 1
+        test_user_true['ts_id'] = np.arange(seq_len)
 
         train_user_list.append(train_user)
         test_user_list.append(test_user_true.values)
@@ -369,6 +370,9 @@ def split_train_test_sequential(df, n_items, n_users, seq_len=4, test_user_size=
     train = pd.concat(train_user_list, axis=0)
     test = np.concatenate(test_user_list, axis=0)
 
-    test = pd.DataFrame(test, columns=cols)
+    test = pd.DataFrame(test, columns=cols + ["ts_id"])
 
-    return train[['user_id', 'item_id', 'timestamp']], test[['user_id', 'item_id', 'timestamp']], train['rating'].to_frame(), test["rating"].to_frame()
+    X_test = test.pivot_table(index=['user_id', 'seq_id'], columns='ts_id', values='item_id').reset_index()
+    y_test = test.pivot_table(index=['user_id', 'seq_id'], columns='ts_id', values='rating').reset_index()
+
+    return train[['user_id', 'item_id', 'timestamp']], X_test, train['rating'].to_frame(), y_test
