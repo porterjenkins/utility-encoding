@@ -19,6 +19,24 @@ def get_eval_metrics(output, at_k=5):
     return output, rmse, avg_dcg
 
 
+def get_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
+
+    pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
+    true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
+
+    output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
+                          columns=['user_id'] + pred_cols + true_cols)
+
+    pred_long = pd.melt(output[['user_id'] + pred_cols], id_vars='user_id', value_vars=pred_cols, value_name='pred')
+    true_long = pd.melt(output[['user_id'] + true_cols], id_vars='user_id', value_vars=true_cols, value_name='y_true')
+
+    output = pd.concat([pred_long[['user_id', 'pred']], true_long['y_true']], axis=1)
+
+    output, rmse, dcg = get_eval_metrics(output, at_k=eval_k)
+
+    return output, rmse, dcg
+
+
 def get_idcg(k):
     ideal = np.zeros(k)
     ideal[0] = 1
@@ -44,6 +62,44 @@ def get_choice_eval_metrics(output, at_k=5):
     ndcg = results['dcg']
     hit_ratio = results['y_true']
 
+
+    return output, hit_ratio, ndcg
+
+
+def get_choice_eval_sequential(output, at_k=5):
+
+    output.sort_values(by=['user_id', 'pred'], inplace=True, ascending=False)
+    output = output.groupby('user_id').head(at_k)
+
+
+    output['rank'] = output[['user_id', 'pred']].groupby('user_id').rank(method='first', ascending=False).astype(float)
+    output['dcg'] = (np.power(2, output['y_true']) - 1) / np.log2(output['rank'] + 1)
+
+    results = output[['user_id', 'y_true', 'dcg']].groupby("user_id").sum().mean()
+
+
+
+    ndcg = results['dcg']
+    hit_ratio = results['y_true']
+
+
+    return output, hit_ratio, ndcg
+
+
+def get_choice_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
+
+    pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
+    true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
+
+    output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
+                          columns=['user_id'] + pred_cols + true_cols)
+
+    pred_long = pd.melt(output[['user_id'] + pred_cols], id_vars='user_id', value_vars=pred_cols, value_name='pred')
+    true_long = pd.melt(output[['user_id'] + true_cols], id_vars='user_id', value_vars=true_cols, value_name='y_true')
+
+    output = pd.concat([pred_long[['user_id', 'pred']], true_long['y_true']], axis=1)
+
+    output, hit_ratio, ndcg = get_choice_eval_sequential(output, at_k=eval_k)
 
     return output, hit_ratio, ndcg
 
@@ -83,3 +139,5 @@ def read_train_test_dir(dir, drop_ts=True):
 
 
     return x_train, x_test, y_train, y_test
+
+

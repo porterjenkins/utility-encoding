@@ -14,6 +14,7 @@ import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument("--nrows", type = int, help="limit number of rows")
 parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}")
+parser.add_argument("--test_user_size", type=int, help = "the number of items to sample per user", default=50)
 args = parser.parse_args()
 
 
@@ -43,7 +44,7 @@ else:
 df['rating'] = 1.0
 
 X_train, X_test, y_test, user_item_rating_map, item_rating_map, user_id_map, id_user_map, item_id_map, id_item_map, stats = preprocess_user_item_choice_df(
-    df[['user_id', 'item_id', 'rating', 'timestamp']], test_size_per_user=50)
+    df[['user_id', 'item_id', 'rating', 'timestamp']], test_size_per_user=args.test_user_size)
 
 
 
@@ -61,7 +62,7 @@ X_train = pd.DataFrame(X_train, columns=['user_id', 'item_id', 'rating', 'timest
 X_train[['user_id', 'item_id', 'timestamp']].to_csv(out_dir + "x_train.csv", index=False)
 X_train[['rating']].to_csv(out_dir + "y_train.csv", index=False)
 
-X_test = pd.DataFrame(X_test, columns=['user_id', 'item_id'])
+X_test = pd.DataFrame(X_test, columns=['user_id', 'item_id', 'timestamp'])
 y_test = pd.DataFrame(y_test, columns=['rating'])
 
 X_test.to_csv(out_dir + "x_test.csv", index=False)
