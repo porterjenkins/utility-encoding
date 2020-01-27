@@ -319,3 +319,56 @@ def get_amazon_datasets(data_dir):
     return data_all
 
 
+
+def split_train_test_sequential(df, n_items, n_users, seq_len=4, test_user_size=10):
+    """
+    DF must be sorted by user id and timestamp!
+    Assume columns of df are in order: ['user_id', 'item_id', 'rating', 'timestamp']
+    :param df:
+    :return:
+    """
+    cols = list(df.columns) + ['seq_id']
+    assert 'user_id' in cols and 'timestamp' in cols and 'item_id' in cols
+
+
+    train_user_list = []
+    test_user_list = []
+
+    print("generating noise samples for sequence data")
+
+    prog_cntr = 0
+    for user_id, user_data in df.groupby('user_id'):
+
+        train_idx = user_data.shape[0] - 1
+
+        train_user = user_data.iloc[:train_idx, :]
+
+        test_user_true = user_data.iloc[(train_idx-seq_len + 1):(train_idx+1), :]
+        test_user_true['seq_id'] = 1
+
+        train_user_list.append(train_user)
+        test_user_list.append(test_user_true.values)
+
+        for i in range(1, test_user_size):
+            seq_id = i + 1
+
+            test_user_noise = test_user_true.values
+            # sample item
+            test_user_noise[seq_len - 1, 1] = np.random.randint(0, n_items)
+            # update as noise sample
+            test_user_noise[seq_len - 1, 2] = 0.0
+            # update sequence id
+            test_user_noise[:, 4] = seq_id
+            test_user_list.append(test_user_noise)
+
+            progress = 100*(prog_cntr / (n_users*test_user_size))
+            print("progress: {:.2f}%".format(progress), end="\r")
+            prog_cntr += 1
+
+
+    train = pd.concat(train_user_list, axis=0)
+    test = np.concatenate(test_user_list, axis=0)
+
+    test = pd.DataFrame(test, columns=cols)
+
+    return train[['user_id', 'item_id', 'timestamp']], test[['user_id', 'item_id', 'timestamp']], train['rating'].to_frame(), test["rating"].to_frame()
