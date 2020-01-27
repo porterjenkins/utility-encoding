@@ -9,7 +9,7 @@ import numpy as np
 from baselines.s_rnn import SRNN, SRNNTrainer
 from experiments.utils import get_choice_eval_metrics_sequential
 import argparse
-from experiments.utils import get_test_sample_size, read_train_test_dir
+from experiments.utils import get_test_sample_size, read_train_test_dir, log_output
 from model.trainer import SequenceTrainer
 from model._loss import loss_mse, loss_logit
 
@@ -148,3 +148,4 @@ print("hit ratio: {:.4f}".format(hit_ratio))
 print("ndcg: {:.4f}".format(ndcg))
 
 
+log_output(MODEL_DIR, MODEL_NAME, params, output=[hit_ratio, ndcg])

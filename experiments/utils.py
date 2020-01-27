@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error
-
+import os
+from datetime import datetime
 
 def get_eval_metrics(output, at_k=5):
 
@@ -141,3 +142,19 @@ def read_train_test_dir(dir, drop_ts=True):
     return x_train, x_test, y_train, y_test
 
 
+def log_output(out_dir, model_name, params, output):
+
+    log_dir = out_dir + "/log"
+
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+    now = datetime.now()
+    fname = "{}/{}-{}.txt".format(log_dir, model_name, now)
+
+    with open(fname, 'w') as f:
+        f.write("{} - {}\n".format(model_name, now))
+        for name, val in params.items():
+            f.write("{}: {}\n".format(name, val))
+
+        for i in output:
+            f.write("{:.4f}\n".format(i))
