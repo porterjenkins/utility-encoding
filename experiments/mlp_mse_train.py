@@ -7,7 +7,7 @@ from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse
 from baselines.ncf_mlp import MLP
-from experiments.utils import get_eval_metrics
+from experiments.utils import get_eval_metrics, log_output
 import argparse
 import pandas as pd
 from experiments.utils import get_test_sample_size, read_train_test_dir
@@ -125,3 +125,5 @@ output, rmse, dcg = get_eval_metrics(output, at_k=params['eval_k'])
 
 print("rmse: {:.4f}".format(rmse))
 print("dcg: {:.4f}".format(dcg))
+
+log_output(MODEL_DIR, MODEL_NAME, params, output=[rmse, dcg])

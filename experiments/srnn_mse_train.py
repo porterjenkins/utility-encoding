@@ -9,7 +9,7 @@ import numpy as np
 from baselines.s_rnn import SRNN, SRNNTrainer
 from experiments.utils import get_eval_metrics_sequential
 import argparse
-from experiments.utils import get_test_sample_size, read_train_test_dir
+from experiments.utils import get_test_sample_size, read_train_test_dir, log_output
 from model.trainer import SequenceTrainer
 from model._loss import loss_mse
 
@@ -144,3 +144,5 @@ output, rmse, dcg = get_eval_metrics_sequential(users_test, preds, y_test_seq, p
 
 print("rmse: {:.4f}".format(rmse))
 print("dcg: {:.4f}".format(dcg))
+
+log_output(MODEL_DIR, MODEL_NAME, params, output=[rmse, dcg])
