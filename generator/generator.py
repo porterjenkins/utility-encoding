@@ -281,8 +281,6 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
                         supp_cntr += 1
 
-                        supp_cntr +=1
-
 
                 #X_s[i, ts, :] = s_set
                 #y_s[i, ts, :] = y_s_set

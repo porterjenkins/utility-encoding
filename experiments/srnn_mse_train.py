@@ -75,6 +75,9 @@ item_rating_map = load_dict_output(data_dir, "item_rating.json", True)
 stats = load_dict_output(data_dir, "stats.json")
 print("Dataset read complete...")
 
+print("n users: {}".format(stats['n_users']))
+print("n items: {}".format(stats['n_items']))
+
 
 
 interactions = Interactions(user_ids=X_train[:, 0],
