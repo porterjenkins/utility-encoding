@@ -339,6 +339,10 @@ def split_train_test_sequential(df, n_items, n_users, seq_len=4, test_user_size=
     prog_cntr = 0
     for user_id, user_data in df.groupby('user_id'):
 
+        if user_data.shape[0] < seq_len:
+            # skip user if not enough data
+            continue
+
         train_idx = user_data.shape[0] - 1
 
         train_user = user_data.iloc[:train_idx, :]
