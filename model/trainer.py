@@ -114,11 +114,14 @@ class NeuralUtilityTrainer(object):
         return x_grad
 
 
-    def get_gradient(self, users, items, y_true):
+    @classmethod
+    def get_gradient(cls, model, loss, users, items, y_true):
         items = items.requires_grad_(True)
-        y_hat = self.model.forward(users, items)
-        loss = self.loss(y_true=y_true, y_hat=y_hat)
-        x_grad = self._get_input_grad(loss, items)
+        y_hat = model.forward(users, items)
+        loss_val = loss(y_true=y_true, y_hat=y_hat)
+
+        x_grad_all = torch.autograd.grad(loss_val, items, retain_graph=True)[0]
+        x_grad = torch.sum(torch.mul(x_grad_all, items), dim=-1)
 
         return x_grad.data.numpy()
 

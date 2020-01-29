@@ -22,7 +22,7 @@ print("Running simulation with {} utility".format(UTILITY))
 
 RANDOM_SEED = 1990
 N_USERS = 100
-N = 64
+N = 50
 N_SIM = 10
 RHO = 2
 
@@ -255,7 +255,7 @@ for iter in range(N_SIM):
 
     _ = trainer.fit()
 
-    grad_vanilla = trainer.get_gradient(users, items_for_grad, y_true)
+    grad_vanilla = NeuralUtilityTrainer.get_gradient(encoder, loss_mse, users, items_for_grad, y_true)
     mrs_vanilla = compute_pariwise_mrs(grad_vanilla)
     l2_vanilla = mrs_error(MRS, mrs_vanilla)
     output['vanilla'].append(l2_vanilla)
@@ -285,7 +285,7 @@ for iter in range(N_SIM):
 
 
 
-    grad_utility = trainer.get_gradient(users, items_for_grad, y_true)
+    grad_utility =  NeuralUtilityTrainer.get_gradient(encoder_utility, loss_mse, users, items_for_grad, y_true)
     mrs_utility = compute_pariwise_mrs(grad_utility)
 
     l2_utility = mrs_error(MRS, mrs_utility)

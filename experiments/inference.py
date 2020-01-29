@@ -26,7 +26,6 @@ RANDOM_SEED = 1990
 EVAL_K = 5
 
 model_path = cfg.vals["model_dir"] + "/wide_deep_amazon_logit_done.pt"
-model = torch.load(model_path, map_location=torch.device('cpu'))
 
 
 
