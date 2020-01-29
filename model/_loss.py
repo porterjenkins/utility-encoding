@@ -10,13 +10,12 @@ def loss_mse(y_true, y_hat):
 
 
 def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s):
-    """err = y_true - y_hat
+    err = y_true - y_hat
     err_c = y_true_c - y_hat_c
     err_s = y_true_s - y_hat_s
 
     err_all = torch.cat((err.flatten(), err_c.flatten(), err_s.flatten()))
-    return torch.mean(torch.pow(err_all, 2))"""
-    return y_hat.sum() + y_hat_c.sum() + y_hat_s.sum()
+    return torch.mean(torch.pow(err_all, 2))
 
 
 def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):

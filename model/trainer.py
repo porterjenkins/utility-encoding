@@ -247,10 +247,11 @@ class NeuralUtilityTrainer(object):
             if self.n_gpu > 1:
                 loss_u = loss_u.mean()
 
+            utility = y_hat.sum() + y_hat_c.sum() + y_hat_s.sum()
 
-            x_grad = self._get_input_grad(loss_u, batch['items'])
-            x_c_grad = self._get_input_grad(loss_u, batch['x_c'])
-            x_s_grad = self._get_input_grad(loss_u, batch['x_s'])
+            x_grad = self._get_input_grad(utility, batch['items'])
+            x_c_grad = self._get_input_grad(utility, batch['x_c'])
+            x_s_grad = self._get_input_grad(utility, batch['x_s'])
 
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=self.lmbda)
