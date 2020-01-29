@@ -15,7 +15,8 @@ class NeuralUtilityTrainer(object):
 
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
-                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, parallel=True):
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, parallel=True,
+                 max_iter=None):
         self.users = users
         self.items = items
         self.y_train = y_train
@@ -38,6 +39,7 @@ class NeuralUtilityTrainer(object):
         self.use_cuda = use_cuda
         self.n_gpu = torch.cuda.device_count()
         self.lmbda=lmbda
+        self.max_iter = max_iter
 
         print(self.device)
 
@@ -104,7 +106,7 @@ class NeuralUtilityTrainer(object):
             print("Training on CPU")
 
 
-    def get_input_grad(self, loss, x):
+    def _get_input_grad(self, loss, x):
 
         x_grad_all = torch.autograd.grad(loss, x, retain_graph=True)[0]
         x_grad = torch.sum(torch.mul(x_grad_all, x), dim=-1)
@@ -112,6 +114,13 @@ class NeuralUtilityTrainer(object):
         return x_grad
 
 
+    def get_gradient(self, users, items, y_true):
+        items = items.requires_grad_(True)
+        y_hat = self.model.forward(users, items)
+        loss = self.loss(y_true=y_true, y_hat=y_hat)
+        x_grad = self._get_input_grad(loss, items)
+
+        return x_grad.data.numpy()
 
 
     def fit(self):
@@ -225,9 +234,9 @@ class NeuralUtilityTrainer(object):
                 loss_u = loss_u.mean()
 
 
-            x_grad = self.get_input_grad(loss_u, batch['items'])
-            x_c_grad = self.get_input_grad(loss_u, batch['x_c'])
-            x_s_grad = self.get_input_grad(loss_u, batch['x_s'])
+            x_grad = self._get_input_grad(loss_u, batch['items'])
+            x_c_grad = self._get_input_grad(loss_u, batch['x_c'])
+            x_s_grad = self._get_input_grad(loss_u, batch['x_s'])
 
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=self.lmbda)
@@ -450,9 +459,9 @@ class SequenceTrainer(NeuralUtilityTrainer):
                 loss_u = loss_u.mean()
 
 
-            x_grad = self.get_input_grad(loss_u, batch['items'])
-            x_c_grad = self.get_input_grad(loss_u, batch['x_c'])
-            x_s_grad = self.get_input_grad(loss_u, batch['x_s'])
+            x_grad = self._get_input_grad(loss_u, batch['items'])
+            x_c_grad = self._get_input_grad(loss_u, batch['x_c'])
+            x_s_grad = self._get_input_grad(loss_u, batch['x_s'])
 
             #x_grad = x_grad.view(self.batch_size, self.seq_len)
             x_c_grad = x_c_grad.view(self.batch_size, self.seq_len, self.c_size)
