@@ -122,6 +122,13 @@ class NeuralUtilityTrainer(object):
 
         return x_grad.data.numpy()
 
+    def _check_max_iter(self, i):
+        if self.max_iter is None:
+            return False
+        if i >= self.max_iter:
+            print("Stopping. Max iterations reached: {}".format(i))
+            return True
+
 
     def fit(self):
 
@@ -184,6 +191,10 @@ class NeuralUtilityTrainer(object):
                     _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
 
             iter += 1
+
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
 
         self.checkpoint_model(suffix='done')
         return loss_arr
@@ -275,6 +286,10 @@ class NeuralUtilityTrainer(object):
 
             iter += 1
 
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
+
         self.checkpoint_model(suffix='done')
         return loss_arr
 
@@ -318,12 +333,13 @@ class SequenceTrainer(NeuralUtilityTrainer):
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5,
-                 parallel=False):
+                 parallel=False, max_iter=None):
 
         super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
                  user_item_rating_map, item_rating_map, c_size, s_size, n_items,
                  checkpoint, model_path, model_name, X_val, y_val, lmbda, parallel)
         self.seq_len = seq_len
+        self.max_iter = max_iter
 
 
     def get_generator(self, users, items, y_train, use_utility_loss):
@@ -340,74 +356,6 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
         return torch.zeros(1, batch_size, self.h_dim_size)
 
-    """def fit(self):
-
-        #h_init = self.init_hidden(batch_size=self.batch_size).to(self.device)
-
-        self.print_device_specs()
-
-        if self.X_val is not None:
-            _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
-
-        loss_arr = []
-
-        iter = 0
-        cum_loss = 0
-        prev_loss = -1
-
-        self.generator = self.get_generator(self.users, self.items, self.y_train, False)
-
-        while self.generator.epoch_cntr < self.n_epochs:
-
-            batch = self.generator.get_batch(as_tensor=True)
-
-            batch['users'] = batch['users'].to(self.device)
-            batch['items'] = batch['items'].to(self.device)
-            batch['y'] = batch['y'].to(self.device)
-
-            # zero gradient
-            self.optimizer.zero_grad()
-
-            y_hat, h = self.model.forward(batch['users'], batch['items'])
-            h = h.to(self.device)
-            y_hat = torch.transpose(y_hat, 0, 1).to(self.device)
-            loss = self.loss(y_true=batch['y'], y_hat=y_hat)
-
-            if self.n_gpu > 1:
-                loss = loss.mean()
-
-            loss.backward()
-            self.optimizer.step()
-            loss = loss.detach()
-            cum_loss += loss
-
-            if iter % self.loss_step == 0:
-                if iter == 0:
-                    avg_loss = cum_loss
-                else:
-                    avg_loss = cum_loss / self.loss_step
-                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
-                cum_loss = 0
-
-                loss_arr.append(avg_loss)
-
-                if abs(prev_loss - loss) < self.eps:
-                    print('early stopping criterion met. Finishing training')
-                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
-                    break
-                else:
-                    prev_loss = loss
-
-            if self.generator.check():
-                # Check if epoch is ending. Checkpoint and get evaluation metrics
-                self.checkpoint_model(suffix=iter)
-                if self.X_val is not None:
-                    _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
-
-            iter += 1
-
-        self.checkpoint_model(suffix='done')
-        return loss_arr"""
 
     def fit_utility_loss(self):
 
@@ -503,6 +451,10 @@ class SequenceTrainer(NeuralUtilityTrainer):
                     _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
 
             iter += 1
+
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
 
         self.checkpoint_model(suffix='done')
         return loss_arr
