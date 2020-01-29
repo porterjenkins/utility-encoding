@@ -12,6 +12,8 @@ import math
 from model.trainer import NeuralUtilityTrainer
 from model._loss import loss_mse
 import torch
+from experiments.utils import compute_pariwise_mrs, mrs_error, get_analytical_ces_mrs, get_analytical_cobb_douglas_mrs
+from experiments.utils import get_mrs_mat, logit, cobb_douglas, ces
 
 from sklearn.preprocessing import OneHotEncoder
 
@@ -22,8 +24,8 @@ print("Running simulation with {} utility".format(UTILITY))
 
 RANDOM_SEED = 1990
 N_USERS = 100
-N = 50
-N_SIM = 10
+N = 256
+N_SIM = 5
 RHO = 2
 
 assert UTILITY in ['cobb-douglas', 'ces']
@@ -34,84 +36,7 @@ np.random.seed(RANDOM_SEED)
 weights = np.random.uniform(0, 10, N)
 weights = weights / np.sum(weights)
 
-def mrs_error(M1, M2):
 
-    assert M1.shape == M2.shape
-
-    n = M1.shape[0]
-
-    idx = np.triu_indices(n)
-
-    m1 = M1[idx]
-    m2 = M2[idx]
-
-    mse = math.sqrt(mean_squared_error(m1, m2))
-    return mse
-
-def get_analytical_cobb_douglas_mrs(w1, w2):
-
-    #return w1 + w2
-    return -w1/w2
-
-def get_analytical_stone_geary_mrs(w1, w2, gamma_1, gamma_2):
-
-    return -(w1*gamma_1)/(w2*gamma_2)
-
-def get_analytical_ces_mrs(w1, w2, rho):
-
-    return - (w1 / w2)**(rho-1)
-
-def get_mrs_mat(x, w, mrs_func, rho=None):
-    n = x.shape[0]
-    mrs_mat = np.zeros((n, n))
-
-    for i in range(n):
-        for j in range(n):
-
-            if rho is None:
-                mrs_mat[i, j] = mrs_func(w1=w[i], w2=w[j])
-            else:
-                mrs_mat[i, j] = mrs_func(w1=w[i], w2=w[j], rho=rho)
-
-    return mrs_mat
-
-
-def compute_pariwise_mrs(grad):
-
-    n = len(grad)
-    mrs_mat = np.zeros((n, n))
-
-    for i, g_i in enumerate(grad):
-        for j, g_j in enumerate(grad):
-
-            if g_j == 0.0:
-                g_j = 1e-3
-
-            mrs_mat[i, j] = - (g_i / g_j)
-
-    return mrs_mat
-
-
-
-def logit(x):
-    return 1 / (1 + np.exp(-x))
-
-
-def cobb_douglas(x, w):
-    # TODO: Think more about this. This assumes that we are already at one. What's the utility at 2?
-    eps = 1.0
-    log_x = np.log(x + eps)
-    log_u = np.dot(log_x, w) + np.random.normal(0, 1, 1)[0]
-    u = np.exp(log_u)
-
-    return u
-
-def ces(x, w, rho):
-
-    x_power = np.power(x, rho)
-    inner_prod = np.dot(x_power, w)
-    u = np.power(inner_prod, rho)
-    return u
 
 
 def gen_bundle(n, k):
@@ -200,14 +125,14 @@ params = {
     "h_dim_size": 256,
     "n_epochs": 20,
     "batch_size": 32,
-    "lr": 1e-6,
-    "eps": 1e-4,
+    "lr": 1e-5,
+    "eps": 1e-6,
     "c_size": 5,
     "s_size": 5,
     "loss_step": 20,
     "eval_k": 5,
     "loss": "utility",
-    "lambda": .005
+    "lambda": .1
 }
 
 one_hot = OneHotEncoder(categories=[range(N)])
