@@ -265,10 +265,16 @@ def load_dict_output(dir, fname, keys_to_int=False):
 
             if isinstance(v, dict):
 
-                data_to_int[int(k)] = {int(k2): v2 for k2,v2 in v.items()}
+                try:
+                    data_to_int[int(k)] = {int(k2): v2 for k2,v2 in v.items()}
+                except:
+                    data_to_int[int(float(k))] = {int(k2): v2 for k2, v2 in v.items()}
 
             else:
-                data_to_int[int(k)] = v
+                try:
+                    data_to_int[int(k)] = v
+                except ValueError:
+                    data_to_int[int(float(k))] = v
 
         return data_to_int
 
