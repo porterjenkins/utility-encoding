@@ -162,8 +162,8 @@ def plot_clusters(k, name):
     return data, Y, tsne
 
 
-labeled, Y, t = plot_clusters(50, 'home_kitchen')
-nm = mm.get_id_asin('home_kitchen')
+# labeled, Y, t = plot_clusters(15, 'home_kitchen')
+# nm = mm.get_id_asin('home_kitchen')
 #
 # titled = {}
 # for key in labeled:
@@ -182,12 +182,12 @@ nm = mm.get_id_asin('home_kitchen')
 #                 'asin': asin,
 #                 'title': 'stripped cause html'
 #             })
-#
-# import json
-#
+
+import json
+
 # with open('data4.json', 'w') as outfile:
 #     json.dump(titled, outfile)
 
-with open('Y.pt', 'wb') as outfile:
+with open('Y.pt', 'rb') as outfile:
     import pickle
-    pickle.dump(Y, outfile)
+    Y = pickle.load(outfile)
