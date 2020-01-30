@@ -57,7 +57,7 @@ params = {
             "lambda": args.lmbda,
             "seq_len": args.seq_len,
             "max_iter": args.max_iter,
-            "grad_clip": 5.0
+            "grad_clip": args.grad_clip
         }
 
 
@@ -113,7 +113,7 @@ trainer = SequenceTrainer(users=sequence_users.reshape(-1,1), items=sequences,
                           model_name=MODEL_NAME, model_path=MODEL_DIR,
                           checkpoint=args.checkpoint, lmbda=params["lambda"],
                           seq_len=params["seq_len"], parallel=False,
-                          max_iter=params["max_iter"])
+                          max_iter=params["max_iter"], grad_clip=params["grad_clip"])
 
 
 if params['loss'] == 'utility':
