@@ -9,6 +9,7 @@ from model._loss import utility_loss, mrs_loss
 from torch import nn
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np
+from baselines.vae_cf import MultiVAE
 
 
 class NeuralUtilityTrainer(object):
@@ -113,6 +114,16 @@ class NeuralUtilityTrainer(object):
 
         return x_grad
 
+    def forward_prop(self, batch):
+        y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+        loss = self.loss(y_true=batch['y'], y_hat=y_hat)
+        return loss
+    def forward_prop_vae(self, batch):
+        recon_batch, mu, logvar = self.model.forward(batch['users'], batch['items'])
+        loss = None
+        return loss
+
+
 
     @classmethod
     def get_gradient(cls, model, loss, users, items, y_true):
@@ -159,8 +170,10 @@ class NeuralUtilityTrainer(object):
             # zero gradient
             self.optimizer.zero_grad()
 
-            y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
-            loss = self.loss(y_true=batch['y'], y_hat=y_hat)
+            if isinstance(self.model, MultiVAE):
+                loss = self.forward_prop_vae(batch)
+            else:
+                loss = self.forward_prop(batch)
 
             if self.n_gpu > 1:
                 loss = loss.mean()
