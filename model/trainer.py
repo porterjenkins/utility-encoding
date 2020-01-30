@@ -271,6 +271,8 @@ class NeuralUtilityTrainer(object):
             if self.n_gpu > 1:
                 loss = loss.mean()
 
+            # zero gradient
+            self.optimizer.zero_grad()
 
             loss.backward()
             self.optimizer.step()
@@ -438,7 +440,8 @@ class SequenceTrainer(NeuralUtilityTrainer):
             if self.n_gpu > 1:
                 loss = loss.mean()
 
-
+            # zero gradient
+            self.optimizer.zero_grad()
             loss.backward()
 
             if self.grad_clip:
