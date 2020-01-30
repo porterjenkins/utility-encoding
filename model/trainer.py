@@ -4,7 +4,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import torch
 import torch.optim as optim
-from generator.generator import CoocurrenceGenerator, Generator
+from generator.generator import CoocurrenceGenerator, Generator, SeqCoocurrenceGenerator
 from model._loss import utility_loss, mrs_loss
 from torch import nn
 from sklearn.preprocessing import OneHotEncoder
@@ -15,7 +15,8 @@ class NeuralUtilityTrainer(object):
 
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
-                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1):
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, parallel=True,
+                 max_iter=None):
         self.users = users
         self.items = items
         self.y_train = y_train
@@ -38,13 +39,16 @@ class NeuralUtilityTrainer(object):
         self.use_cuda = use_cuda
         self.n_gpu = torch.cuda.device_count()
         self.lmbda=lmbda
+        self.max_iter = max_iter
 
         print(self.device)
-        if self.use_cuda and self.n_gpu > 1:
+
+        if self.use_cuda and self.n_gpu > 1 and parallel:
             self.model = nn.DataParallel(model)  # enabling data parallelism
+            print("Parallel processing enabled")
         else:
             self.model = model
-
+    
         self.model.to(self.device)
 
         if model_name is None:
@@ -102,7 +106,7 @@ class NeuralUtilityTrainer(object):
             print("Training on CPU")
 
 
-    def get_input_grad(self, loss, x):
+    def _get_input_grad(self, loss, x):
 
         x_grad_all = torch.autograd.grad(loss, x, retain_graph=True)[0]
         x_grad = torch.sum(torch.mul(x_grad_all, x), dim=-1)
@@ -110,6 +114,23 @@ class NeuralUtilityTrainer(object):
         return x_grad
 
 
+    @classmethod
+    def get_gradient(cls, model, loss, users, items, y_true):
+        items = items.requires_grad_(True)
+        y_hat = model.forward(users, items)
+        loss_val = loss(y_true=y_true, y_hat=y_hat)
+
+        x_grad_all = torch.autograd.grad(loss_val, items, retain_graph=True)[0]
+        x_grad = torch.sum(torch.mul(x_grad_all, items), dim=-1)
+
+        return x_grad.data.numpy()
+
+    def _check_max_iter(self, i):
+        if self.max_iter is None:
+            return False
+        if i >= self.max_iter:
+            print("Stopping. Max iterations reached: {}".format(i))
+            return True
 
 
     def fit(self):
@@ -174,6 +195,10 @@ class NeuralUtilityTrainer(object):
 
             iter += 1
 
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
+
         self.checkpoint_model(suffix='done')
         return loss_arr
 
@@ -223,9 +248,9 @@ class NeuralUtilityTrainer(object):
                 loss_u = loss_u.mean()
 
 
-            x_grad = self.get_input_grad(loss_u, batch['items'])
-            x_c_grad = self.get_input_grad(loss_u, batch['x_c'])
-            x_s_grad = self.get_input_grad(loss_u, batch['x_s'])
+            x_grad = self._get_input_grad(loss_u, batch['items'])
+            x_c_grad = self._get_input_grad(loss_u, batch['x_c'])
+            x_s_grad = self._get_input_grad(loss_u, batch['x_s'])
 
 
             loss = mrs_loss(loss_u, x_grad.reshape(-1, 1), x_c_grad, x_s_grad, lmbda=self.lmbda)
@@ -264,6 +289,10 @@ class NeuralUtilityTrainer(object):
 
             iter += 1
 
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
+
         self.checkpoint_model(suffix='done')
         return loss_arr
 
@@ -300,3 +329,170 @@ class NeuralUtilityTrainer(object):
 
         return preds
 
+
+
+
+class SequenceTrainer(NeuralUtilityTrainer):
+    def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
+                 user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5,
+                 parallel=False, max_iter=None):
+
+        super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
+                 user_item_rating_map, item_rating_map, c_size, s_size, n_items,
+                 checkpoint, model_path, model_name, X_val, y_val, lmbda, parallel)
+        self.seq_len = seq_len
+        self.max_iter = max_iter
+
+
+    def get_generator(self, users, items, y_train, use_utility_loss):
+
+        return SeqCoocurrenceGenerator(users, items, y_train, batch_size=self.batch_size,
+                                    user_item_rating_map=self.user_item_rating_map,
+                                    item_rating_map=self.item_rating_map, shuffle=True,
+                                    c_size=self.c_size, s_size=self.s_size, n_item=self.n_items,seq_len=self.seq_len)
+
+    def init_hidden(self, batch_size=None):
+
+        if batch_size is None:
+            batch_size = self.batch_size
+
+        return torch.zeros(1, batch_size, self.h_dim_size)
+
+
+    def fit_utility_loss(self):
+
+        self.print_device_specs()
+
+        if self.X_val is not None:
+            _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        self.generator = self.get_generator(self.users, self.items, self.y_train, True)
+
+        while self.generator.epoch_cntr < self.n_epochs:
+
+            batch = self.generator.get_batch(as_tensor=True)
+
+            batch['y'] = batch['y'].to(self.device)
+            batch['y_c'] = batch['y_c'].to(self.device)
+            batch['y_s'] = batch['y_s'].to(self.device)
+
+            batch['items'] = batch['items'].requires_grad_(True).to(self.device)
+            batch['x_c'] = batch['x_c'].requires_grad_(True).to(self.device)
+            batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
+            batch['users'] = batch['users'].to(self.device)
+
+            y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+
+            batch["x_c"] = batch["x_c"].view(self.batch_size, self.c_size*self.seq_len, -1)
+            y_hat_c = self.model.forward(batch['users'], batch['x_c']).to(self.device)
+            y_hat_c = y_hat_c.view(self.batch_size, self.seq_len, self.c_size)
+
+
+
+            batch["x_s"] = batch["x_s"].view(self.batch_size, self.s_size * self.seq_len, -1)
+            y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device)
+            y_hat_s = y_hat_s.view(self.batch_size, self.seq_len, self.s_size)
+
+
+            # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
+            loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s),
+                                  batch['y'], batch['y_c'], batch['y_s'])
+
+
+            if self.n_gpu > 1:
+                loss_u = loss_u.mean()
+
+
+            x_grad = self._get_input_grad(loss_u, batch['items'])
+            x_c_grad = self._get_input_grad(loss_u, batch['x_c'])
+            x_s_grad = self._get_input_grad(loss_u, batch['x_s'])
+
+            #x_grad = x_grad.view(self.batch_size, self.seq_len)
+            x_c_grad = x_c_grad.view(self.batch_size, self.seq_len, self.c_size)
+            x_s_grad = x_s_grad.view(self.batch_size, self.seq_len, self.s_size)
+
+
+            loss = mrs_loss(loss_u, x_grad.unsqueeze(-1), x_c_grad, x_s_grad, lmbda=self.lmbda)
+
+            if self.n_gpu > 1:
+                loss = loss.mean()
+
+
+            loss.backward()
+            self.optimizer.step()
+            loss = loss.detach()
+            cum_loss += loss
+
+            if iter % self.loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / self.loss_step
+                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < self.eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            if self.generator.check():
+                # Check if epoch is ending. Checkpoint and get evaluation metrics
+                self.checkpoint_model(suffix=iter)
+                if self.X_val is not None:
+                    _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+            iter += 1
+
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
+
+        self.checkpoint_model(suffix='done')
+        return loss_arr
+
+
+    def predict(self, users, items, y=None, batch_size=32):
+
+        print("Getting predictions on device: {} - batch size: {}".format(self.device, batch_size))
+
+        self.generator.update_data(users=users, items=items,
+                                   y=y, shuffle=False,
+                                   batch_size=batch_size)
+        n = users.shape[0]
+        preds = list()
+
+        cntr = 0
+
+        while self.generator.epoch_cntr < 1:
+
+
+            test = self.generator.get_batch(as_tensor=True)
+
+            test['users'] = test['users'].to(self.device)
+            test['items'] = test['items'].to(self.device)
+
+            preds_batch = self.model.forward(test['users'], test['items'])
+            preds_batch = preds_batch.detach().data.cpu().numpy()
+            preds.append(preds_batch)
+
+            progress = 100*(cntr / n)
+            print("inference progress: {:.2f}".format(progress), end='\r')
+
+            cntr += batch_size
+
+        preds = np.concatenate(preds, axis=0)
+
+
+        return preds

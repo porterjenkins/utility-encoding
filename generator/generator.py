@@ -26,12 +26,14 @@ class Generator(object):
         self.curr_idx = 0
         self.epoch_cntr = 0
         self.n_item = n_item if n_item else items.max()
-        self.one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
-        self.items = self.one_hot_items.fit_transform(items).astype(np.float32)
+        self.one_hot_items, self.items = self._get_item_one_hot(items)
         self.idx = self._get_index()
 
 
-
+    def _get_item_one_hot(self, items):
+        one_hot_items = OneHotEncoder(categories=[range(self.n_item)], sparse=True)
+        items = one_hot_items.fit_transform(items).astype(np.float32)
+        return one_hot_items, items
 
     def update_data(self, users, items, y, shuffle, batch_size):
         self.users = users
@@ -39,8 +41,8 @@ class Generator(object):
         self.y = y
         self.shuffle = shuffle
         self.batch_size = batch_size
-        self.idx = self._get_index()
         self.n_samples = self.users.shape[0]
+        self.idx = self._get_index()
         self.curr_idx = 0
         self.epoch_cntr = 0
 
@@ -94,6 +96,11 @@ class Generator(object):
 
         batch_idx = self.idx[self.curr_idx:(self.curr_idx + self.batch_size)]
         items = self.items[batch_idx, :]
+
+        import numpy as np
+        if items.dtype == np.float64:
+            stop = 0
+
         users = self.users[batch_idx, :]
         y_batch = self.y[batch_idx, :]
         self.update_curr_idx()
@@ -119,7 +126,7 @@ class CoocurrenceGenerator(Generator):
     """
 
 
-    def __init__(self,users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
+    def __init__(self, users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item):
         super().__init__(users, items, y, batch_size, shuffle, n_item)
         self.user_item_rating_map = user_item_rating_map
         self.item_rating_map = item_rating_map
@@ -209,42 +216,49 @@ class CoocurrenceGenerator(Generator):
 
 class SeqCoocurrenceGenerator(CoocurrenceGenerator):
 
-    def __init__(self, X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item, seq_len):
-
-        super().__init__(X, Y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item)
+    def __init__(self, users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size,
+                 n_item, seq_len):
         self.seq_len = seq_len
+        super().__init__(users, items, y, batch_size, shuffle, user_item_rating_map, item_rating_map, c_size, s_size, n_item)
 
-    def get_complement_set(self, x_batch):
 
-        X_c = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.int64)
-        y_c = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.float64)
 
-        users = x_batch[:, 0]
+    def _get_item_one_hot(self, items):
+        categories = [range(self.n_item)]*self.seq_len
+        one_hot_items = OneHotEncoder(categories=categories, sparse=True)
+        items = one_hot_items.fit_transform(items).astype(np.float32)
+        return one_hot_items, items
+
+    def get_complement_set(self, users, items):
+
+        X_c = np.zeros((users.shape[0], self.seq_len, self.c_size, self.n_item), dtype=np.float32)
+        y_c = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
+
 
         for i, user_id in enumerate(users):
-            item_ratings = self.user_item_rating_map[user_id]
+            item_ratings = self.user_item_rating_map[user_id[0]]
+
 
             for ts in range(self.seq_len):
 
-                items = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
+                items_sampled = np.random.choice(list(item_ratings.keys()), size=self.c_size, replace=True)
 
-                X_c[i, ts, :] = items
 
-                for j, item in enumerate(items):
+                for j, item in enumerate(items_sampled):
+                    X_c[i, ts, j, int(item)] = 1.0
                     y_c[i, ts, j] = item_ratings[item]
 
         return X_c, y_c
 
 
-    def get_supp_set(self, x_batch):
+    def get_supp_set(self, users, items):
 
-        X_s = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.int64)
-        y_s = np.zeros((x_batch.shape[0], self.seq_len, self.c_size), dtype=np.float64)
+        X_s = np.zeros((users.shape[0], self.seq_len, self.c_size, self.n_item), dtype=np.float32)
+        y_s = np.zeros((users.shape[0], self.seq_len, self.c_size), dtype=np.float32)
 
-        users = x_batch[:, 0]
 
         for i, user_id in enumerate(users):
-            user_items = list(self.user_item_rating_map[user_id].keys())
+            user_items = list(self.user_item_rating_map[user_id[0]].keys())
 
             for ts in range(self.seq_len):
 
@@ -257,17 +271,55 @@ class SeqCoocurrenceGenerator(CoocurrenceGenerator):
                     if item not in user_items:
                         s_set[supp_cntr] = item
 
-                        n_ratings = len(self.item_rating_map[item])
+                        # handle case where item appears in test data, but not training data
+                        try:
+                            item_ratings = self.item_rating_map[item]
+                        except KeyError:
+                            continue
+
+                        n_ratings = len(item_ratings)
                         ratings_idx = np.random.randint(0, n_ratings, 1)[0]
                         y_s_set[supp_cntr] = self.item_rating_map[item][ratings_idx]
 
-                        supp_cntr +=1
+                        X_s[i, ts, supp_cntr, item] = 1
+                        y_s[i, ts, supp_cntr] = item_ratings[ratings_idx]
+
+                        supp_cntr += 1
 
 
-                X_s[i, ts, :] = s_set
-                y_s[i, ts, :] = y_s_set
+                #X_s[i, ts, :] = s_set
+                #y_s[i, ts, :] = y_s_set
 
         return X_s, y_s
+
+    def get_batch(self, as_tensor=False):
+
+        b = super(CoocurrenceGenerator, self).get_batch(False)
+
+        b["items"] = np.array(b["items"].todense()).reshape(self.batch_size, self.seq_len, self.n_item)
+
+        X_c, y_c = self.get_complement_set(b['users'], b['items'])
+        X_s, y_s = self.get_supp_set(b['users'], b['items'])
+
+        if as_tensor:
+            b['items'] = torch.from_numpy(b['items'])
+            b['users'] = torch.from_numpy(b['users'])
+            b['y'] = torch.from_numpy(b['y'])
+            X_c = torch.from_numpy(X_c)
+            X_s = torch.from_numpy(X_s)
+            y_c = torch.from_numpy(y_c)
+            y_s = torch.from_numpy(y_s)
+
+        batch = {'users': b['users'],
+                 'items': b['items'],
+                 'y': b['y'],
+                 'x_c': X_c,
+                 'y_c': y_c,
+                 'x_s': X_s,
+                 'y_s': y_s}
+
+        return batch
+
 
 
 

@@ -7,7 +7,7 @@ from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse, loss_logit
 from baselines.deep_fm import DeepFM
-from experiments.utils import get_choice_eval_metrics
+from experiments.utils import get_choice_eval_metrics, log_output
 import argparse
 import pandas as pd
 from experiments.utils import get_test_sample_size, read_train_test_dir
@@ -86,7 +86,7 @@ n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
-model = DeepFM(field_dims=[stats["n_users"], stats["n_items"]], embed_dim=params["h_dim_size"], mlp_dims=(16, 16),
+model = DeepFM(field_dims=[stats["n_items"]], embed_dim=params["h_dim_size"], mlp_dims=(16, 16),
                dropout=0.2, use_logit=True)
 
 
@@ -131,3 +131,5 @@ output, hit_ratio, ndcg = get_choice_eval_metrics(output, at_k=params['eval_k'])
 
 print("hit ratio: {:.4f}".format(hit_ratio))
 print("ndcg: {:.4f}".format(ndcg))
+
+log_output(MODEL_DIR, MODEL_NAME, params, output=[hit_ratio, ndcg])

@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import config.config as cfg
-from generator.generator import SimpleBatchGenerator, CoocurrenceGenerator, SeqCoocurrenceGenerator
+from generator.generator import SeqCoocurrenceGenerator
 from preprocessing.utils import split_train_test_user, load_dict_output
 from preprocessing.interactions import Interactions
 import numpy as np
@@ -17,7 +17,8 @@ from model._loss import mrs_loss, utility_loss, loss_mse
 
 
 class SRNNTrainer(object):
-    def __init__(self, srnn, data, params, use_cuda=False, use_utility_loss=False, user_item_rating_map=None, item_rating_map=None, k=None):
+    def __init__(self, srnn, data, params, use_cuda=False, use_utility_loss=False, user_item_rating_map=None,
+                 item_rating_map=None, k=None, n_items=None):
         self.srnn = srnn
         self.device = torch.device('cuda' if use_cuda else 'cpu')
         self.use_utility_loss = use_utility_loss
@@ -26,6 +27,7 @@ class SRNNTrainer(object):
         self.item_rating_map = item_rating_map
         self.k = k
         self.batch_size = params['batch_size']
+        self.n_items = n_items
 
         self.h_dim = params['h_dim']
         self.n_epochs = params['n_epochs']
@@ -39,7 +41,7 @@ class SRNNTrainer(object):
     def train(self):
         X = self.data[0]
         y = self.data[1]
-        self.X_train, self.X_test, self.y_train, self.y_test = split_train_test_user(X, y, random_seed=1990)
+
 
 
         gen = self.generator(self.X_train, self.y_train)
@@ -84,14 +86,12 @@ class SRNNTrainer(object):
         return self.srnn
 
     def generator(self, X_train, y_train):
-        if self.use_utility_loss:
-            return SeqCoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
-                                        user_item_rating_map=self.user_item_rating_map,
-                                        item_rating_map=self.item_rating_map, shuffle=True,
-                                        c_size=self.k, s_size=self.k, n_item=self.srnn.n_items,
-                                           seq_len=self.seq_len)
-        else:
-            return SimpleBatchGenerator(X_train, y_train, batch_size=self.batch_size)
+
+        return SeqCoocurrenceGenerator(X_train, y_train, batch_size=self.batch_size,
+                                    user_item_rating_map=self.user_item_rating_map,
+                                    item_rating_map=self.item_rating_map, shuffle=True,
+                                    c_size=self.k, s_size=self.k, n_item=self.srnn.n_items,
+                                    seq_len=self.seq_len)
 
     def do_epoch(self, gen):
 
@@ -145,7 +145,7 @@ class SRNNTrainer(object):
 
 class SRNN(nn.Module):
 
-    def __init__(self, n_items, h_dim_size, gru_hidden_size, n_layers=3, use_cuda=False, batch_size=32):
+    def __init__(self, n_items, h_dim_size, gru_hidden_size, n_layers=3, use_cuda=False, batch_size=32, use_logit=False):
         super(SRNN, self).__init__()
         self.batch_size = batch_size
         self.n_items = n_items
@@ -158,23 +158,24 @@ class SRNN(nn.Module):
         self.activation = nn.Tanh()
         self.out = nn.Linear(h_dim_size, 1)
         self.embedding = EmbeddingGrad(n_items, h_dim_size, use_cuda=use_cuda)
+        self.use_logit = use_logit
+        self.logistic = torch.nn.Sigmoid()
         if use_cuda:
             self = self.cuda()
 
-    def forward(self, input, hidden):
-        embedded = self.embedding(input)
+
+    def forward(self, users, items):
+        embedded = self.embedding(items)
         #embedded = embedded.unsqueeze(0)
-        o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1), hidden)
+        o, h = self.gru(torch.transpose(torch.squeeze(embedded), 0, 1))
         # o = o.view(-1, o.size(-1))
 
         y_hat = torch.squeeze(self.activation(self.out(o)))
-        if self.use_cuda:
-            y_hat = y_hat.to(self.device)
-            h = h.to(self.device)
-        return y_hat, h
 
-    def init_hidden(self):
-        return torch.zeros(self.n_layers, self.batch_size, self.h_dim_size).to(self.device)
+        if self.use_logit:
+            y_hat = self.logistic(y_hat)
+        return torch.transpose(y_hat, 0, 1)
+
 
     def one_hot(self, input):
         self.one_hot_embedding.zero_()

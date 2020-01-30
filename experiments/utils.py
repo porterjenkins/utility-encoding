@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error
-
+import os
+from datetime import datetime
+import math
 
 def get_eval_metrics(output, at_k=5):
 
@@ -17,6 +19,24 @@ def get_eval_metrics(output, at_k=5):
     avg_dcg = output.dcg.mean()
 
     return output, rmse, avg_dcg
+
+
+def get_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
+
+    pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
+    true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
+
+    output = pd.DataFrame(np.concatenate((users_test, preds, y_test), axis=1),
+                          columns=['user_id'] + pred_cols + true_cols)
+
+    pred_long = pd.melt(output[['user_id'] + pred_cols], id_vars='user_id', value_vars=pred_cols, value_name='pred')
+    true_long = pd.melt(output[['user_id'] + true_cols], id_vars='user_id', value_vars=true_cols, value_name='y_true')
+
+    output = pd.concat([pred_long[['user_id', 'pred']], true_long['y_true']], axis=1)
+
+    output, rmse, dcg = get_eval_metrics(output, at_k=eval_k)
+
+    return output, rmse, dcg
 
 
 def get_idcg(k):
@@ -44,6 +64,43 @@ def get_choice_eval_metrics(output, at_k=5):
     ndcg = results['dcg']
     hit_ratio = results['y_true']
 
+
+    return output, hit_ratio, ndcg
+
+
+def get_choice_eval_sequential(output, at_k=5):
+
+    output.sort_values(by=['user_id', 'pred'], inplace=True, ascending=False)
+    output = output.groupby('user_id').head(at_k)
+
+
+    output['rank'] = output[['user_id', 'pred']].groupby('user_id').rank(method='first', ascending=False).astype(float)
+    output['dcg'] = (np.power(2, output['y_true']) - 1) / np.log2(output['rank'] + 1)
+
+    results = output[['user_id', 'y_true', 'dcg']].groupby("user_id").sum().mean()
+
+
+
+    ndcg = results['dcg']
+    hit_ratio = results['y_true']
+
+
+    return output, hit_ratio, ndcg
+
+
+def get_choice_eval_metrics_sequential(users_test, preds, y_test, seq_len, eval_k):
+
+    #pred_cols = ["pred_{}".format(x) for x in range(seq_len)]
+    #true_cols = ["y_true_{}".format(x) for x in range(seq_len)]
+
+    y_test_ts = y_test[:, seq_len-1].reshape(-1,1)
+    preds_ts = preds[:, seq_len-1].reshape(-1,1)
+
+
+    output = pd.DataFrame(np.concatenate((users_test, preds_ts, y_test_ts), axis=1),
+                          columns=['user_id', 'pred', 'y_true'])
+
+    output, hit_ratio, ndcg = get_choice_eval_sequential(output, at_k=eval_k)
 
     return output, hit_ratio, ndcg
 
@@ -83,3 +140,130 @@ def read_train_test_dir(dir, drop_ts=True):
 
 
     return x_train, x_test, y_train, y_test
+
+
+def log_output(out_dir, model_name, params, output):
+
+    log_dir = out_dir + "/log"
+
+    if not os.path.exists(log_dir):
+        os.mkdir(log_dir)
+    now = datetime.now()
+    fname = "{}/{}-{}.txt".format(log_dir, model_name, now)
+
+    with open(fname, 'w') as f:
+        f.write("{} - {}\n".format(model_name, now))
+        for name, val in params.items():
+            f.write("{}: {}\n".format(name, val))
+
+        for i in output:
+            f.write("{:.4f}\n".format(i))
+
+
+
+def read_train_test_dir_sequential(dir):
+
+    x_train = pd.read_csv(dir + "/x_train.csv")
+    x_train = x_train.values.astype(np.int64)
+
+
+    x_test = pd.read_csv(dir + "/x_test.csv")
+
+
+    y_train = pd.read_csv(dir + "/y_train.csv").values.reshape(-1,1).astype(np.float32)
+    y_test = pd.read_csv(dir + "/y_test.csv")
+
+
+
+    return x_train, x_test, y_train, y_test
+
+
+def compute_pariwise_mrs(grad):
+
+    n = len(grad)
+    mrs_mat = np.zeros((n, n))
+
+    for i, g_i in enumerate(grad):
+        for j, g_j in enumerate(grad):
+
+            if g_j == 0.0:
+                g_j = 1e-3
+
+            mrs_mat[i, j] = - (g_i / g_j)
+
+    return mrs_mat
+
+def get_mrs_arr(grad):
+
+    return -np.outer(grad, 1/grad)
+
+def mrs_error(M1, M2):
+
+    assert M1.shape == M2.shape
+
+    n = M1.shape[0]
+
+    idx = np.triu_indices(n)
+
+    m1 = M1[idx]
+    m2 = M2[idx]
+
+    mse = math.sqrt(mean_squared_error(m1, m2))
+    return mse
+
+def get_analytical_cobb_douglas_mrs(w1, w2):
+
+    #return w1 + w2
+    return -w1/w2
+
+def get_analytical_stone_geary_mrs(w1, w2, gamma_1, gamma_2):
+
+    return -(w1*gamma_1)/(w2*gamma_2)
+
+def get_analytical_ces_mrs(w1, w2, rho):
+
+    return - (w1 / w2)**(rho-1)
+
+def get_mrs_mat(x, w, mrs_func, rho=None):
+    n = x.shape[0]
+    mrs_mat = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(n):
+
+            if rho is None:
+                mrs_mat[i, j] = mrs_func(w1=w[i], w2=w[j])
+            else:
+                mrs_mat[i, j] = mrs_func(w1=w[i], w2=w[j], rho=rho)
+
+    return mrs_mat
+
+
+
+
+def logit(x):
+    return 1 / (1 + np.exp(-x))
+
+
+def cobb_douglas(x, w):
+    # TODO: Think more about this. This assumes that we are already at one. What's the utility at 2?
+    eps = 1.0
+    log_x = np.log(x + eps)
+    log_u = np.dot(log_x, w) + np.random.normal(0, 1, 1)[0]
+    u = np.exp(log_u)
+
+    return u
+
+def ces(x, w, rho):
+
+    x_power = np.power(x, rho)
+    inner_prod = np.dot(x_power, w)
+    u = np.power(inner_prod, rho)
+    return u
+
+
+def get_supp_k(arr, k):
+    return np.argsort(np.abs(arr))[-k:]
+
+def get_comp_k(arr, k):
+    return np.argsort(np.abs(arr))[:k]

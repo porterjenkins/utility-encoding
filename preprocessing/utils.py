@@ -102,8 +102,8 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
     n_users = len(np.unique(df['user_id']))
 
-    X_test_pos = np.zeros((n_users, 2))
-    X_test_neg = np.zeros((n_users*test_size_per_user, 2))
+    X_test_pos = np.zeros((n_users, 3))
+    X_test_neg = np.zeros((n_users*test_size_per_user, 3))
 
     X_train_list = []
 
@@ -129,7 +129,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
         user_n = user_data.shape[0]
 
         user_data_train = user_data.iloc[:user_n-1, :]
-        user_data_test = user_data.values[user_n-1, :2]
+        user_data_test = user_data.values[user_n-1, :]
 
         # add user_id to map
         if user_id not in user_id_map:
@@ -151,6 +151,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
         #X_test_pos[test_row_idx, :] = user_data_test
         X_test_pos[test_row_idx, 0] = user_id_map[user_data_test[0]]
         X_test_pos[test_row_idx, 1] = item_id_map[user_data_test[1]]
+        X_test_pos[test_row_idx, 2] = 0.0
 
         user_output = np.zeros_like(user_data_train)
 
@@ -210,6 +211,7 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
 
         neg_sample_cntr = 0
 
+        time_stamp = 1
         while neg_sample_cntr < test_size_per_user:
 
             neg_sample = np.random.randint(0, stats["n_items"], size=1)[0]
@@ -219,10 +221,12 @@ def preprocess_user_item_choice_df(df, test_size_per_user=10):
                 # store in test set vector
                 X_test_neg[test_set_neg_idx, 0] = user
                 X_test_neg[test_set_neg_idx, 1] = neg_sample
+                X_test_neg[test_set_neg_idx, 2] = time_stamp
 
 
                 neg_sample_cntr += 1
                 test_set_neg_idx += 1
+                time_stamp += 1
 
                 print("progress: {:.4f}%".format((test_set_neg_idx / (n_users*test_size_per_user)) * 100), end='\r')
 
@@ -261,10 +265,16 @@ def load_dict_output(dir, fname, keys_to_int=False):
 
             if isinstance(v, dict):
 
-                data_to_int[int(k)] = {int(k2): v2 for k2,v2 in v.items()}
+                try:
+                    data_to_int[int(k)] = {int(k2): v2 for k2,v2 in v.items()}
+                except:
+                    data_to_int[int(float(k))] = {int(k2): v2 for k2, v2 in v.items()}
 
             else:
-                data_to_int[int(k)] = v
+                try:
+                    data_to_int[int(k)] = v
+                except ValueError:
+                    data_to_int[int(float(k))] = v
 
         return data_to_int
 
@@ -309,10 +319,70 @@ def get_amazon_datasets(data_dir):
                 "style",
                 "image"
             ])
-
             data_list.append(df)
 
     data_all = pd.concat(data_list)
     return data_all
 
 
+
+def split_train_test_sequential(df, n_items, n_users, seq_len=4, test_user_size=10):
+    """
+    DF must be sorted by user id and timestamp!
+    Assume columns of df are in order: ['user_id', 'item_id', 'rating', 'timestamp']
+    :param df:
+    :return:
+    """
+    cols = list(df.columns) + ['seq_id']
+    assert 'user_id' in cols and 'timestamp' in cols and 'item_id' in cols
+
+
+    train_user_list = []
+    test_user_list = []
+
+    print("generating noise samples for sequence data")
+
+    prog_cntr = 0
+    for user_id, user_data in df.groupby('user_id'):
+
+        if user_data.shape[0] < seq_len:
+            # skip user if not enough data
+            continue
+
+        train_idx = user_data.shape[0] - 1
+
+        train_user = user_data.iloc[:train_idx, :]
+
+        test_user_true = user_data.iloc[(train_idx-seq_len + 1):(train_idx+1), :]
+        test_user_true['seq_id'] = 1
+        test_user_true['ts_id'] = np.arange(seq_len)
+
+        train_user_list.append(train_user)
+        test_user_list.append(test_user_true.values)
+
+        for i in range(1, test_user_size):
+            seq_id = i + 1
+
+            test_user_noise = test_user_true.values
+            # sample item
+            test_user_noise[seq_len - 1, 1] = np.random.randint(0, n_items)
+            # update as noise sample
+            test_user_noise[seq_len - 1, 2] = 0.0
+            # update sequence id
+            test_user_noise[:, 4] = seq_id
+            test_user_list.append(test_user_noise)
+
+            progress = 100*(prog_cntr / (n_users*test_user_size))
+            print("progress: {:.2f}%".format(progress), end="\r")
+            prog_cntr += 1
+
+
+    train = pd.concat(train_user_list, axis=0)
+    test = np.concatenate(test_user_list, axis=0)
+
+    test = pd.DataFrame(test, columns=cols + ["ts_id"])
+
+    X_test = test.pivot_table(index=['user_id', 'seq_id'], columns='ts_id', values='item_id').reset_index()
+    y_test = test.pivot_table(index=['user_id', 'seq_id'], columns='ts_id', values='rating').reset_index()
+
+    return train[['user_id', 'item_id', 'timestamp']], X_test, train['rating'].to_frame(), y_test
