@@ -336,13 +336,14 @@ class SequenceTrainer(NeuralUtilityTrainer):
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5,
-                 parallel=False, max_iter=None):
+                 parallel=False, max_iter=None, grad_clip=None):
 
         super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
                  user_item_rating_map, item_rating_map, c_size, s_size, n_items,
                  checkpoint, model_path, model_name, X_val, y_val, lmbda, parallel)
         self.seq_len = seq_len
         self.max_iter = max_iter
+        self.grad_clip = grad_clip
 
 
     def get_generator(self, users, items, y_train, use_utility_loss):
@@ -426,6 +427,10 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
 
             loss.backward()
+
+            if self.grad_clip:
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
+
             self.optimizer.step()
             loss = loss.detach()
             cum_loss += loss

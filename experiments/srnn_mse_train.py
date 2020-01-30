@@ -29,6 +29,7 @@ parser.add_argument("--s_size", type = int, help = "Size of supplement set", def
 parser.add_argument("--lmbda", type = float, help = "Size of supplement set", default=.1)
 parser.add_argument("--seq_len", type = int, help = "Length of sequences", default=4)
 parser.add_argument("--max_iter", type = int, help = "Length of sequences", default=None)
+parser.add_argument("--grad_clip", type=float, help = "Clip gradients during trining", default=None)
 
 
 
@@ -55,7 +56,8 @@ params = {
             "loss": args.loss,
             "lambda": args.lmbda,
             "seq_len": args.seq_len,
-            "max_iter": args.max_iter
+            "max_iter": args.max_iter,
+            "grad_clip": 5.0
         }
 
 
