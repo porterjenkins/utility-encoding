@@ -32,7 +32,6 @@ def dot_product(a: Vector, b: Vector) -> float:
 
 
 def cosine_similarity(a: Vector, b: Vector) -> float:
-
     return 1 - spatial.distance.cosine(a, b)
     # return dot_product(a, b) / (norm(a) * norm(b))
 
@@ -47,10 +46,9 @@ def load_model_for(name):
     return model
 
 
-def by_similarity(items: List[Item], base_vector: Vector) -> List[Tuple[float, Item]]:
-    item_distances = [(cosine_similarity(base_vector, i.vector), i) for i in items]
-    # We want cosine similarity to be as large as possible (close to 1)
-    return sorted(item_distances, key=lambda t: t[0], reverse=False)
+def by_similarity(items: List[Item], start: Vector) -> List[Tuple[float, Item]]:
+    item_distances = [(cosine_similarity(start, i.vector), i) for i in items]
+    return sorted(item_distances, key=lambda t: t[0], reverse=True)
 
 
 def print_related(items: List[Item], asin: str) -> None:
@@ -91,26 +89,34 @@ def create_items(meta_name):
     return items
 
 
+def add(v1: Vector, v2: Vector) -> Vector:
+    return numpy.add(v1, v2)
+
+
+def sub(v1: Vector, v2: Vector) -> Vector:
+    return numpy.subtract(v1, v2)
+
+
 def closest_analogies(
-        left2: str, left1: str, right2: str, items: List[Item]
+        left2: Item, left1: Item, right2: Item, items: List[Item]
 ) -> List[Tuple[float, Item]]:
-    item_left1 = find_item(items, left1)
-    item_left2 = find_item(items, left2)
-    item_right2 = find_item(items, right2)
-    v = (item_left1.vector + item_left2.vector) - item_right2.vector
+    v = add(sub(left1.vector, left2.vector), right2.vector)
     closest = by_similarity(items, v)[:150]
 
     return closest
 
 
 def get_analogy(left2: str, left1: str, right2: str, items: List[Item]) -> List[Tuple[float, Item]]:
-    analogies = closest_analogies(left2, left1, right2, items)
-    if (len(analogies) == 0):
-        print(f"{left2}-{left1} is like {right2}-?")
-    else:
-        for i in range(0, len(analogies)):
-            (dist, w) = analogies[i]
-            print(f"{left2}-{left1} is like {right2}-{w.title} with score {dist}")
+    item_left1 = find_item(items, left1)
+    item_left2 = find_item(items, left2)
+    item_right2 = find_item(items, right2)
+    analogies = closest_analogies(item_left2, item_left1, item_right2, items)
+
+    print(f"\n\n{item_left2.title}-{item_left1.title} is like {item_right2.title}- ?????\n\n")
+
+    for i in range(0, len(analogies)):
+        (dist, w) = analogies[i]
+        print(f"{w.title} with score {dist}")
     return analogies
 
 
