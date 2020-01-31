@@ -14,7 +14,7 @@ def utility_loss(y_hat, y_hat_c, y_hat_s, y_true, y_true_c, y_true_s, func):
     err_c = func(y_true_c, y_hat_c)
     err_s = func(y_true_s, y_hat_s)
 
-    return err + err_c + err_s
+    return (err + err_c + err_s) / 3.0
 
 def mrs_loss(utility_loss, x_grad, x_c_grad, x_s_grad, lmbda=1):
     mrs_c = -(x_grad / x_c_grad)
