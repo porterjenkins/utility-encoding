@@ -6,7 +6,7 @@ from preprocessing.utils import split_train_test_user, load_dict_output
 from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse, loss_logit
-from baselines.vae_cf import MultiDAE, MultiVAE
+from baselines.vae_cf import MultiDAE, MultiVAE, vae_loss_function
 from experiments.utils import get_choice_eval_metrics, log_output
 import argparse
 import pandas as pd
@@ -94,7 +94,7 @@ print("Model intialized")
 print("Beginning Training...")
 
 trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[:, 1:].reshape(-1,1),
-                               y_train=y_train, model=model, loss=loss_logit,
+                               y_train=y_train, model=model, loss=vae_loss_function,
                                n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                                lr=params["lr"], loss_step_print=params["loss_step"],
                                eps=params["eps"], item_rating_map=item_rating_map,

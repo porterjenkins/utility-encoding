@@ -117,11 +117,13 @@ class NeuralUtilityTrainer(object):
     def forward_prop(self, batch):
         y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
         loss = self.loss(y_true=batch['y'], y_hat=y_hat)
-        return loss
+        return loss, y_hat
+
     def forward_prop_vae(self, batch):
         recon_batch, mu, logvar = self.model.forward(batch['users'], batch['items'])
-        loss = None
-        return loss
+        loss = self.loss(recon_batch, batch["y"], mu, logvar)
+        y_hat = torch.mean(mu, dim=1)
+        return loss, y_hat
 
 
 
@@ -171,9 +173,9 @@ class NeuralUtilityTrainer(object):
             self.optimizer.zero_grad()
 
             if isinstance(self.model, MultiVAE):
-                loss = self.forward_prop_vae(batch)
+                loss, _ = self.forward_prop_vae(batch)
             else:
-                loss = self.forward_prop(batch)
+                loss, _ = self.forward_prop(batch)
 
             if self.n_gpu > 1:
                 loss = loss.mean()
@@ -247,6 +249,8 @@ class NeuralUtilityTrainer(object):
             batch['x_c'] = batch['x_c'].requires_grad_(True).to(self.device)
             batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
             batch['users'] = batch['users'].to(self.device)
+
+
 
             y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
             y_hat_c = self.model.forward(batch['users'], batch['x_c']).to(self.device)
@@ -331,7 +335,13 @@ class NeuralUtilityTrainer(object):
             test['users'] = test['users'].to(self.device)
             test['items'] = test['items'].to(self.device)
 
-            preds_batch = self.model.forward(test['users'], test['items']).detach().data.cpu().numpy()
+            if isinstance(self.model, MultiVAE):
+                _, preds_batch = self.forward_prop_vae(test)
+            else:
+                _, preds_batch = self.forward_prop(test)
+
+            preds_batch = preds_batch.detach().data.cpu().numpy()
+            #preds_batch = self.model.forward(test['users'], test['items']).detach().data.cpu().numpy()
             preds.append(preds_batch)
 
             progress = 100*(cntr / n)
