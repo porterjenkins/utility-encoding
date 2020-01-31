@@ -258,7 +258,7 @@ class NeuralUtilityTrainer(object):
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s),
-                                  batch['y'], batch['y_c'], batch['y_s'])
+                                  batch['y'], batch['y_c'], batch['y_s'], func=self.loss)
 
 
             if self.n_gpu > 1:
