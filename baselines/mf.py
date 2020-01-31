@@ -16,7 +16,8 @@ class MatrixFactorization(nn.Module):
                  n_factors=40,
                  dropout_p=0,
                  sparse=False,
-                 use_logit=False):
+                 use_logit=False,
+                 use_cuda=False):
         """
         Parameters
         ----------
@@ -48,6 +49,11 @@ class MatrixFactorization(nn.Module):
         self.logistic = torch.nn.Sigmoid()
         self.sparse = sparse
         self.use_logit = use_logit
+        self.use_cuda = use_cuda
+        self.device = torch.device('cuda' if use_cuda else 'cpu')
+
+        if use_cuda:
+            self = self.cuda()
 
     def forward(self, users, items):
         """
