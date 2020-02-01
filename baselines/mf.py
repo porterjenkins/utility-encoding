@@ -39,8 +39,8 @@ class MatrixFactorization(nn.Module):
         self.n_users = n_users
         self.n_items = n_items
         self.n_factors = n_factors
-        self.user_biases = nn.Embedding(n_users, 1, sparse=sparse)
-        self.item_biases = EmbeddingGrad(n_items, 1)
+        #self.user_biases = nn.Embedding(n_users, 1, sparse=sparse)
+        #self.item_biases = EmbeddingGrad(n_items, 1)
         self.user_embeddings = nn.Embedding(n_users, n_factors, sparse=sparse)
         self.item_embeddings = EmbeddingGrad(num_embedding=self.n_items, embedding_dim=self.n_factors)
 
@@ -74,14 +74,15 @@ class MatrixFactorization(nn.Module):
         ues = self.user_embeddings(users).squeeze()
         uis = self.item_embeddings(items)
 
-        b_user =  self.user_biases(users).view(-1, 1)
-        b_item = self.item_biases(items)
+        #b_user =  self.user_biases(users).view(-1, 1)
+        #b_item = self.item_biases(items)
 
         if uis.ndim == 3:
-            b_user = b_user.repeat(1, uis.shape[1]).unsqueeze(2)
+            #b_user = b_user.repeat(1, uis.shape[1]).unsqueeze(2)
             ues = ues.unsqueeze(1).repeat(1, uis.shape[1], 1)
 
-        preds = b_user + b_item + (self.dropout(ues) * self.dropout(uis)).sum(dim=-1, keepdim=True)
+        #preds = b_user + b_item + (self.dropout(ues) * self.dropout(uis)).sum(dim=-1, keepdim=True)
+        preds = (self.dropout(ues) * self.dropout(uis)).sum(dim=-1, keepdim=True)
 
         if self.use_logit:
             preds = self.logistic(preds)
