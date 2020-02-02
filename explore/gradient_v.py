@@ -1,14 +1,24 @@
+import os
+import sys
 from random import sample
 from typing import List
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy
-import pandas as pd
-import torch
 from sklearn.manifold import TSNE
 
 from preprocessing.meta_data_item_mapper import MetaDataMap, get_meta_config
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from experiments.utils import read_train_test_dir, get_mrs_arr, get_supp_k, get_comp_k
+import torch
+import pandas as pd
+import numpy as np
+from model.trainer import NeuralUtilityTrainer
+from model._loss import loss_mse
+from sklearn.preprocessing import OneHotEncoder
+from preprocessing.utils import load_dict_output
 
 Vector = numpy.ndarray
 config = get_meta_config()
@@ -38,17 +48,67 @@ class Item:
             return 'na'
 
 
+class ItemHolder:
+    def __init__(self, items: List[Item], id_map, catmap, boughtmap):
+        self.items = items
+        self.id_map = id_map
+        self.cat_map = catmap
+        self.bougt_map = boughtmap
+
+    def item(self, asin: str) -> Item:
+        return next(i for i in self.items if asin == i.asin)
+
+    def item_for_idx(self, idx):
+        return self.item(self.id_map[str(idx)])
+
+
+class GradientHolder:
+    def __init__(self, gradients, ih: ItemHolder):
+        self.gradients = gradients
+        self.items = ih
+        self.mrs = get_mrs_arr(self.gradients)
+
+    def get_supp_and_comp(self, asin: str, k=5):
+
+        I = self.items.item(asin)
+        item_idx = I.idx
+
+        item = self.mrs[item_idx, :]
+        print(item)
+        supp = get_supp_k(item, k=k)
+        comp = get_comp_k(item, k=k)
+
+        print("Item: {}".format(I.title))
+        print("Supplements: ")
+        s = []
+        c = []
+        for i in supp:
+            ii = self.items.item_for_idx(i)
+            s.append(ii)
+            print(ii.title, self.gradients[i])
+        print("Complements: ")
+        for i in comp:
+            ii = self.items.item_for_idx(i)
+            c.append(ii)
+            print(self.items.item_for_idx(i).title, self.gradients[i])
+
+        print(np.max(self.gradients))
+        print(np.min(self.gradients))
+
+        return (s, c)
+
+
 def print_tuple(tup):
     return tup[0] + " " + str(tup[1])
 
 
-def load_model_for(name, size=None):
+def load_model_for(name, size=None, map_location=torch.device('cpu')):
     model_dir = config[name]['model']
     if size is None:
         size = ''
     else:
         size = '_' + size
-    model = torch.load(model_dir + '/item_encoder_amazon_utility' + size + '_done.pt')
+    model = torch.load(model_dir + '/item_encoder_amazon_utility' + size + '_done.pt', map_location=map_location)
     return model
 
 
@@ -92,7 +152,7 @@ def create_items(meta_name, size=None):
         else:
             b = []
         items.append(Item(asin=asin, idx=int(val), vector=vec, title=title, cat=cat, bought=b))
-    return items
+    return ItemHolder(items, mm.get_id_item_map(meta_name), catmap, boughtmap)
 
 
 def dim_reduce(items: List[Item]):
@@ -150,7 +210,41 @@ def dim_reduce(items: List[Item]):
     return Y
 
 
-g_512 = create_items('grocery', str(512))
-g_1000 = create_items('grocery'
-                      )
-hk_256 = create_items('home_kitchen')
+def do_gradients(meta_name, size=None):
+    model = load_model_for(meta_name)
+
+    # Process data
+    X_train, X_test, y_train, y_test = read_train_test_dir(config[meta_name]['pp'])
+    stats = load_dict_output(config[meta_name]['pp'], "stats.json")
+
+    one_hot = OneHotEncoder(categories=[range(stats["n_items"])])
+    items_for_grad = one_hot.fit_transform(np.arange(stats["n_items"]).reshape(-1, 1)).todense().astype(np.float32)
+
+    train = np.concatenate([X_train, y_train], axis=1)
+    test = np.concatenate([X_test, y_test], axis=1)
+
+    X = np.concatenate((train, test), axis=0)
+
+    df = pd.DataFrame(X, columns=["user_id", "item_id", "rating"])
+    item_means = df[['item_id', 'rating']].groupby("item_id").mean()
+
+    users = None
+    items_for_grad = torch.from_numpy(items_for_grad)
+    y_true = torch.from_numpy(item_means.values.reshape(-1, 1))
+
+    gradients = NeuralUtilityTrainer.get_gradient(model, loss_mse, users, items_for_grad, y_true)
+    print(gradients)
+
+    return gradients
+
+
+def create_gr(meta, size=None):
+    ih = create_items(meta, size)
+    g = do_gradients(meta, size)
+    return GradientHolder(g, ih)
+
+
+g_512 = create_gr('grocery', str(512))
+
+# g_1000 = create_items('grocery')
+# hk_256 = create_items('home_kitchen')
