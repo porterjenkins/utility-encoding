@@ -6,7 +6,7 @@ from preprocessing.utils import load_dict_output
 from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse
-from baselines.wide_and_deep import WideAndDeep
+from baselines.mf import MatrixFactorization
 import torch
 from experiments.utils import get_eval_metrics, log_output
 import argparse
@@ -28,6 +28,7 @@ parser.add_argument("--lr", type = float, help = "Learning Rate", default=5e-5)
 parser.add_argument("--c_size", type = int, help = "Size of complement set", default=5)
 parser.add_argument("--s_size", type = int, help = "Size of supplement set", default=5)
 parser.add_argument("--lmbda", type = float, help = "Size of supplement set", default=.1)
+parser.add_argument("--max_iter", type = int, help = "Length of sequences", default=None)
 
 
 
@@ -36,7 +37,7 @@ parser.add_argument("--lmbda", type = float, help = "Size of supplement set", de
 
 args = parser.parse_args()
 
-MODEL_NAME = "wide_deep_ratings_{}_{}".format(args.dataset, args.loss)
+MODEL_NAME = "mf_ratings_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990
@@ -54,7 +55,8 @@ params = {
             "loss_step": LOSS_STEP,
             "eval_k": EVAL_K,
             "loss": args.loss,
-            "lambda": args.lmbda
+            "lambda": args.lmbda,
+            "max_iter": args.max_iter
         }
 
 
@@ -85,15 +87,15 @@ n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
-wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32,
-                        use_cuda=args.cuda)
+model = MatrixFactorization(n_users=stats["n_users"], n_items=stats["n_items"], n_factors=params["h_dim_size"],
+                                dropout_p=.2)
 
 
 print("Model intialized")
 print("Beginning Training...")
 
 trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[:, 1:].reshape(-1,1),
-                               y_train=y_train, model=wide_deep, loss=loss_mse,
+                               y_train=y_train, model=model, loss=loss_mse,
                                n_epochs=params['n_epochs'], batch_size=params['batch_size'],
                                lr=params["lr"], loss_step_print=params["loss_step"],
                                eps=params["eps"], item_rating_map=item_rating_map,
@@ -101,7 +103,8 @@ trainer = NeuralUtilityTrainer(users=X_train[:, 0].reshape(-1,1), items=X_train[
                                c_size=params["c_size"], s_size=params["s_size"],
                                n_items=stats["n_items"], use_cuda=args.cuda,
                                model_name=MODEL_NAME, model_path=MODEL_DIR,
-                               checkpoint=args.checkpoint, lmbda=params["lambda"])
+                               checkpoint=args.checkpoint, lmbda=params["lambda"],
+                               max_iter=params["max_iter"])
 
 
 if params['loss'] == 'utility':

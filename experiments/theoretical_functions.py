@@ -24,8 +24,8 @@ print("Running simulation with {} utility".format(UTILITY))
 
 RANDOM_SEED = 1990
 N_USERS = 100
-N = 256
-N_SIM = 5
+N = 1024
+N_SIM = 10
 RHO = 2
 
 assert UTILITY in ['cobb-douglas', 'ces']
