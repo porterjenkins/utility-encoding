@@ -25,7 +25,7 @@ plt.savefig("tuning-movie-logit.pdf")
 ### RANKINGS DATA
 
 
-movie_ranking = pd.read_csv("tuning-movie-ranking.csv")
+movie_ranking = pd.read_csv("tuning-movie-rating.csv")
 
 
 fig,ax=plt.subplots()
@@ -40,4 +40,4 @@ ax2.plot(movie_ranking['lambda'],  movie_ranking['DCG'], color="red",marker="o")
 ax2.set_ylabel("CDG@5",color="red",fontsize=14)
 ax2.set_ylim([5,14])
 
-plt.savefig("tuning-movie-ranking.pdf")
+plt.savefig("tuning-movie-rating.pdf")
