@@ -20,7 +20,9 @@ def load_items(name):
 
 def load_meta_into(name):
     class Item:
-        def __init__(self, asin: str, idx: int, title: str, vector: Vector = None, cats=None) -> None:
+        def __init__(self, asin: str, idx: int, title: str, vector: Vector = None, cats=None, bought=None) -> None:
+            if bought is None:
+                bought = []
             if cats is None:
                 cats = []
             try:
@@ -34,6 +36,7 @@ def load_meta_into(name):
             self.idx = idx
             self.vector = vector
             self.cats = cats
+            self.also_bought = bought
 
     def create_items(meta_name):
         from preprocessing.meta_data_item_mapper import MetaDataMap
@@ -41,6 +44,7 @@ def load_meta_into(name):
         nm = mm.get_all()
         item_map = load_items(meta_name)
         catmap = mm.get_cat(meta_name)
+        bought_map = mm.get_bought(meta_name)
         items = []
         for val in item_map:
             # vec = weights[:, int(val)]
@@ -53,7 +57,11 @@ def load_meta_into(name):
                 cat = catmap[asin]
             else:
                 cat = []
-            items.append(Item(asin=asin, idx=int(val), title=title, cats=cat))
+            if asin in bought_map:
+                b = bought_map[asin]
+            else:
+                b = []
+            items.append(Item(asin=asin, idx=int(val), title=title, cats=cat, bought=b))
         return items
 
     client = pymongo.MongoClient("localhost", 27017)
@@ -68,6 +76,7 @@ def load_meta_into(name):
             "title": data.title.strip(),
             "idx": data.idx,
             "cats": data.cats,
+            "bought": data.also_bought
         }
 
     def insert(data):
@@ -78,6 +87,7 @@ def load_meta_into(name):
         records.append(create_item_record(item))
 
     insert(records)
+    collection.create_index([("title", pymongo.TEXT)])
     return records
 
 
@@ -85,7 +95,7 @@ def load_meta_into(name):
 
 def search_collection_for_term(collection, term):
     results = []
-    for res in collection.find({"title": {'$regex': term}}):
+    for res in collection.find({"$text": {'$search': term}}):
         results.append(res)
     return results
 
@@ -102,5 +112,6 @@ def get_collection(name):
     return db[name]
 
 
-col = get_collection('home_kitchen')
+# c = get_collection('grocery')
 
+# i = search_collection_for_term(c, '"welch\'s concord" -bean')

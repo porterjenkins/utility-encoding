@@ -274,7 +274,10 @@ def load_dict_output(dir, fname, keys_to_int=False):
                 try:
                     data_to_int[int(k)] = v
                 except ValueError:
-                    data_to_int[int(float(k))] = v
+                    try:
+                        data_to_int[int(float(k))] = v
+                    except:
+                        continue
 
         return data_to_int
 

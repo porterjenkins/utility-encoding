@@ -15,10 +15,10 @@ from preprocessing.utils import load_dict_output
 
 # Set model and data paths manuall
 # TODO: Ahmad to modify for his application
-MODEL_PATH = cfg.vals["model_dir"] + "/encoder_movielens_mse_done.pt"
-data_dir = cfg.vals['movielens_dir'] + "/preprocessed/"
-item_map = load_dict_output(cfg.vals["movielens_dir"] + "/preprocessed/" , "id_item_map.json", True)
-item_to_idx = load_dict_output(cfg.vals["movielens_dir"] + "/preprocessed/" , "item_id_map.json", True)
+MODEL_PATH = cfg.vals["model_dir"] + "/home_kitchen_ahmad/item_encoder_amazon_utility_done.pt"
+data_dir = cfg.vals['amazon_dir'] + "/preprocessed_home_kitchen/"
+item_map = load_dict_output(cfg.vals["amazon_dir"] + "/preprocessed_home_kitchen/" , "id_item_map.json", True)
+item_to_idx = load_dict_output(cfg.vals["amazon_dir"] + "/preprocessed_home_kitchen/" , "item_id_map.json", True)
 
 
 # Process data

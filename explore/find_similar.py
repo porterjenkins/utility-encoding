@@ -13,11 +13,15 @@ config = get_meta_config()
 
 
 class Item:
-    def __init__(self, asin: str, idx: int, title: str, vector: Vector) -> None:
+    def __init__(self, asin: str, idx: int, title: str, vector: Vector, cat=None, bought=None) -> None:
+        if cat is None:
+            cat = []
         if "var aPage" in title:
             self.title = "omitted html"
         else:
             self.title = title
+        self.cat = cat
+        self.bought = bought
         self.asin = asin
         self.idx = idx
         self.vector = vector
@@ -46,9 +50,23 @@ def load_model_for(name):
     return model
 
 
+def get_also_bought(i: Item):
+    bitems = []
+    for asin in i.bought:
+        found = item(asin)
+        if found is not None:
+            bitems.append(found)
+    return bitems
+
+
 def by_similarity(items: List[Item], start: Vector) -> List[Tuple[float, Item]]:
     item_distances = [(cosine_similarity(start, i.vector), i) for i in items]
     return sorted(item_distances, key=lambda t: t[0], reverse=True)
+
+
+def least_similarity(items: List[Item], start: Vector) -> List[Tuple[float, Item]]:
+    item_distances = [(cosine_similarity(start, i.vector), i) for i in items]
+    return sorted(item_distances, key=lambda t: t[0], reverse=False)
 
 
 def print_related(items: List[Item], asin: str) -> None:
@@ -63,6 +81,15 @@ def print_related(items: List[Item], asin: str) -> None:
 
 def find_item(items: List[Item], asin: str) -> Item:
     return next(i for i in items if asin == i.asin)
+
+
+def item(asin: str) -> Item:
+    return next((i for i in items if asin == i.asin), None)
+
+
+def print_is(iis):
+    for i in iis:
+        print(i[1].title + "  " + i[1].asin)
 
 
 def load_items(name):
@@ -80,12 +107,22 @@ def create_items(meta_name):
     model = load_model_for(meta_name)
     weights = model.embedding.weights.weight.data.to('cpu')
     item_map = load_items(meta_name)
+    catmap = mm.get_cat(meta_name)
+    boughtmap = mm.get_bought(meta_name)
     items = []
     for val in item_map:
         vec = weights[:, int(val)]
         asin = nm[str(int(val))]
         title = nm[nm[str(int(val))]]
-        items.append(Item(asin=asin, idx=int(val), vector=vec, title=title))
+        if asin in catmap:
+            cat = catmap[asin]
+        else:
+            cat = []
+        if asin in boughtmap:
+            b = boughtmap[asin]
+        else:
+            b = []
+        items.append(Item(asin=asin, idx=int(val), vector=vec, title=title, cat=cat, bought=b))
     return items
 
 
@@ -106,7 +143,7 @@ def closest_analogies(
     return closest
 
 
-def get_analogy(left2: str, left1: str, right2: str, items: List[Item]) -> List[Tuple[float, Item]]:
+def get_analogy(left1: str, left2: str, right2: str, items: List[Item]) -> List[Tuple[float, Item]]:
     item_left1 = find_item(items, left1)
     item_left2 = find_item(items, left2)
     item_right2 = find_item(items, right2)
@@ -125,4 +162,12 @@ items = create_items(DATASET)
 # print_related(items, 'B00DX53P4M')
 print("Similar Loading")
 
-a = get_analogy('B00DX53P4M', 'B00ODEN5M4', 'B005HPTV9Y', items)
+# a = get_analogy('B00DX53P4M', 'B00ODEN5M4', 'B0055QB4WW', items)
+# s = sub(vector('B00DX53P4M'), vector('B00ODEN5M4'))
+# a = get_analogy('B00DX53P4M', 'B00ODEN5M4', 'B0055QB4WW', items)
+jelly = item('B00ODEN5M4')
+pb = item('B00061ENVK')
+bq = item('B0028B9ZGE')
+sy = item('B0005ZZADW')
+
+spg = item('B000G0K112')

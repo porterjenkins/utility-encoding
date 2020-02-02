@@ -16,15 +16,15 @@ from experiments.utils import get_test_sample_size, read_train_test_dir
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--loss", type = str, help="loss function to optimize", default='mse')
-parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=False)
+parser.add_argument("--loss", type = str, help="loss function to optimize", default='utility')
+parser.add_argument("--cuda", type = bool, help="flag to run on gpu", default=True)
 parser.add_argument("--checkpoint", type = bool, help="flag to run on gpu", default=True)
-parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}", default="Movielens")
+parser.add_argument("--dataset", type = str, help = "dataset to process: {amazon, movielens}", default="amazon")
 parser.add_argument("--epochs", type = int, help = "Maximum number of epochs for training", default=1)
 parser.add_argument("--eps", type = float, help = "Tolerance for early stopping", default=1e-3)
-parser.add_argument("--h_dim_size", type = int, help = "Size of embedding dimension", default=256)
+parser.add_argument("--h_dim_size", type = int, help = "Size of embedding dimension", default=512)
 parser.add_argument("--batch_size", type = int, help = "Size of training batch", default=32)
-parser.add_argument("--lr", type = float, help = "Learning Rate", default=5e-5)
+parser.add_argument("--lr", type = float, help = "Learning Rate", default=1e-5)
 parser.add_argument("--c_size", type = int, help = "Size of complement set", default=5)
 parser.add_argument("--s_size", type = int, help = "Size of supplement set", default=5)
 parser.add_argument("--lmbda", type = int, help = "Size of supplement set", default=.1)
@@ -36,7 +36,7 @@ parser.add_argument("--lmbda", type = int, help = "Size of supplement set", defa
 
 args = parser.parse_args()
 
-MODEL_NAME = "encoder_ratings_{}_{}".format(args.dataset, args.loss)
+MODEL_NAME = "item_encoder_{}_{}_{}".format(args.dataset, args.loss, args.h_dim_size)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990

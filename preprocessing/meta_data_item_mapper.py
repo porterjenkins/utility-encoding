@@ -11,7 +11,7 @@ wanted_columns = ['category', 'title', 'also_buy', 'asin']
 
 META_DATA_CONFIG = {
     'metas': ['pantry', 'home_kitchen', 'grocery'],
-    'num_items': 1,
+    'num_items': 1000,
     'dir': cfg.vals['amazon_dir'],
     'meta_dir': cfg.vals['amazon_dir'] + "meta/",
     'pantry': {
