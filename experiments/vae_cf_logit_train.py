@@ -27,7 +27,7 @@ parser.add_argument("--lr", type = float, help = "Learning Rate", default=5e-5)
 parser.add_argument("--c_size", type = int, help = "Size of complement set", default=5)
 parser.add_argument("--s_size", type = int, help = "Size of supplement set", default=5)
 parser.add_argument("--lmbda", type = float, help = "Size of supplement set", default=.1)
-
+parser.add_argument("--max_iter", type = int, help = "Length of sequences", default=None)
 
 
 
@@ -53,7 +53,8 @@ params = {
             "loss_step": LOSS_STEP,
             "eval_k": EVAL_K,
             "loss": args.loss,
-            "lambda": args.lmbda
+            "lambda": args.lmbda,
+            "max_iter": args.max_iter
         }
 
 
