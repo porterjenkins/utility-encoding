@@ -39,8 +39,8 @@ class MatrixFactorization(nn.Module):
         self.n_users = n_users
         self.n_items = n_items
         self.n_factors = n_factors
-        #self.user_biases = nn.Embedding(n_users, 1, sparse=sparse)
-        #self.item_biases = EmbeddingGrad(n_items, 1)
+        self.user_biases = nn.Embedding(n_users, 1, sparse=sparse)
+        self.item_biases = EmbeddingGrad(n_items, 1)
         self.user_embeddings = nn.Embedding(n_users, n_factors, sparse=sparse)
         self.item_embeddings = EmbeddingGrad(num_embedding=self.n_items, embedding_dim=self.n_factors)
 
