@@ -72,7 +72,7 @@ def create_cat_vectors(meta_name, size=None):
                 idx = asin_to_idx[asin]
                 vec = weights[:, int(idx)]
                 arr = numpy.append(arr, [vec.numpy()], axis=0)
-        mean = numpy.average(arr)
+        mean = numpy.average(arr, axis=0)
         cat_vec[category] = mean
     return cats, cat_vec
 
