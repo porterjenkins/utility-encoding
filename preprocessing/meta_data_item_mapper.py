@@ -137,6 +137,9 @@ class MetaDataMap:
     def get_id_item_map(self, meta):
         return self.meta_files[meta]['id_item']
 
+    def get_asin_idx_map(self, meta):
+        return self.meta_files[meta]['idx']
+
     def get_id_asin(self, meta):
         meta_file = self.meta_files[meta]['id']
         return self.load_mapping_for(meta_file)
