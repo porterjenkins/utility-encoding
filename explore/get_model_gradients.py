@@ -51,7 +51,8 @@ print(gradients)
 
 
 mrs = get_mrs_arr(gradients)
-item_idx = item_to_idx[100]
+item_idx = item_to_idx[1]
+
 
 
 item = mrs[item_idx, :]
@@ -62,13 +63,10 @@ comp = get_comp_k(item, k=5)
 print("Item: {}".format(item_map[item_idx]))
 print("Supplements: ")
 for i in supp:
-    print(item_map[i], gradients[i])
+    print(item_map[i], i, gradients[i])
 print("Complements: ")
 for i in comp:
-    print(item_map[i], gradients[i])
+    print(item_map[i], i, gradients[i])
 
-
-print(np.max(gradients))
-print(np.min(gradients))
 
 
