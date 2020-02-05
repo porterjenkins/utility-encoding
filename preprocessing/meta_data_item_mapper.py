@@ -11,7 +11,7 @@ wanted_columns = ['category', 'title', 'also_buy', 'asin']
 
 META_DATA_CONFIG = {
     'metas': ['pantry', 'home_kitchen', 'grocery'],
-    'num_items': 1,
+    'num_items': 1000,
     'dir': cfg.vals['amazon_dir'],
     'meta_dir': cfg.vals['amazon_dir'] + "meta/",
     'pantry': {
@@ -120,6 +120,7 @@ class MetaDataMap:
             self.meta_files[meta]['id'] = pp + '/' + meta + '_meta_id_item_mapping.pt'
             self.meta_files[meta]['cat'] = pp + '/' + meta + '_meta_id_cat_map.pt'
             self.meta_files[meta]['idx'] = load_dict_output(pp, 'item_id_map.json')
+            self.meta_files[meta]['id_item'] = load_dict_output(pp, 'id_item_map.json')
 
     def get_all(self):
         if len(self.all_asin_to_titles) == 0:
@@ -132,6 +133,12 @@ class MetaDataMap:
 
     def get_avail(self):
         return self.config['metas']
+
+    def get_id_item_map(self, meta):
+        return self.meta_files[meta]['id_item']
+
+    def get_asin_idx_map(self, meta):
+        return self.meta_files[meta]['idx']
 
     def get_id_asin(self, meta):
         meta_file = self.meta_files[meta]['id']
