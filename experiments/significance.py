@@ -4,17 +4,17 @@ from experiments.utils import permutationTest
 
 
 
-x = np.array([10.7748, 10.8403, 10.8331])
+x = np.array([0.7273 , 0.7302,0.7302])
 mean_x = x.mean()
 std_x = x.std()
 
-y =  np.array([10.9319, 10.9311, 10.9257])
+y =  np.array([0.7050, 0.7482])
 mean_y = y.mean()
 std_y = y.std()
 
-print(mean_x, std_x)
-print(mean_y, std_y)
+mean_diff = mean_y - mean_x
 
+print("Difference in means: {:.4f}".format(mean_diff))
 p = permutationTest(x, y, 1000)
 print(p)
 from scipy.stats import ttest_ind
