@@ -63,6 +63,10 @@ def by_similarity(items: List[Item], start: Vector) -> List[Tuple[float, Item]]:
     item_distances = [(cosine_similarity(start, i.vector), i) for i in items]
     return sorted(item_distances, key=lambda t: t[0], reverse=True)
 
+def by_euclidean_distance(items: List[Item], start: Vector) -> List[Tuple[float, Item]]:
+    item_distances = [(spatial.distance.euclidean(start, i.vector), i) for i in items]
+    return sorted(item_distances, key=lambda t: t[0])
+
 
 def least_similarity(items: List[Item], start: Vector) -> List[Tuple[float, Item]]:
     item_distances = [(cosine_similarity(start, i.vector), i) for i in items]
@@ -155,7 +159,6 @@ def get_analogy(left1: str, left2: str, right2: str, items: List[Item]) -> List[
         (dist, w) = analogies[i]
         print(f"{w.title} with score {dist}")
     return analogies
-
 
 DATASET = 'grocery'
 items = create_items(DATASET)
