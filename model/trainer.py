@@ -9,6 +9,7 @@ from model._loss import utility_loss, mrs_loss
 from torch import nn
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np
+from baselines.vae_cf import MultiVAE
 
 
 class NeuralUtilityTrainer(object):
@@ -112,6 +113,18 @@ class NeuralUtilityTrainer(object):
         x_grad = torch.sum(torch.mul(x_grad_all, x), dim=-1)
 
         return x_grad
+
+    """def forward_prop(self, batch):
+        y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+        loss = self.loss(y_true=batch['y'], y_hat=y_hat)
+        return loss, y_hat
+
+    def forward_prop_vae(self, batch):
+        recon_batch, mu, logvar = self.model.forward(batch['users'], batch['items'])
+        loss = self.loss(recon_batch, batch["y"], mu, logvar)
+        y_hat = torch.mean(mu, dim=1)
+        return loss, y_hat"""
+
 
 
     @classmethod
@@ -235,13 +248,15 @@ class NeuralUtilityTrainer(object):
             batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
             batch['users'] = batch['users'].to(self.device)
 
+
+
             y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
             y_hat_c = self.model.forward(batch['users'], batch['x_c']).to(self.device)
             y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device)
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s),
-                                  batch['y'], batch['y_c'], batch['y_s'])
+                                  batch['y'], batch['y_c'], batch['y_s'], self.loss)
 
 
             if self.n_gpu > 1:
@@ -258,6 +273,8 @@ class NeuralUtilityTrainer(object):
             if self.n_gpu > 1:
                 loss = loss.mean()
 
+            # zero gradient
+            self.optimizer.zero_grad()
 
             loss.backward()
             self.optimizer.step()
@@ -336,13 +353,14 @@ class SequenceTrainer(NeuralUtilityTrainer):
     def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
                  user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
                  checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1, seq_len=5,
-                 parallel=False, max_iter=None):
+                 parallel=False, max_iter=None, grad_clip=None):
 
         super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
                  user_item_rating_map, item_rating_map, c_size, s_size, n_items,
                  checkpoint, model_path, model_name, X_val, y_val, lmbda, parallel)
         self.seq_len = seq_len
         self.max_iter = max_iter
+        self.grad_clip = grad_clip
 
 
     def get_generator(self, users, items, y_train, use_utility_loss):
@@ -424,8 +442,13 @@ class SequenceTrainer(NeuralUtilityTrainer):
             if self.n_gpu > 1:
                 loss = loss.mean()
 
-
+            # zero gradient
+            self.optimizer.zero_grad()
             loss.backward()
+
+            if self.grad_clip:
+                nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
+
             self.optimizer.step()
             loss = loss.detach()
             cum_loss += loss
@@ -485,6 +508,123 @@ class SequenceTrainer(NeuralUtilityTrainer):
 
             preds_batch = self.model.forward(test['users'], test['items'])
             preds_batch = preds_batch.detach().data.cpu().numpy()
+            preds.append(preds_batch)
+
+            progress = 100*(cntr / n)
+            print("inference progress: {:.2f}".format(progress), end='\r')
+
+            cntr += batch_size
+
+        preds = np.concatenate(preds, axis=0)
+
+
+        return preds
+
+
+
+class VariationalTrainer(NeuralUtilityTrainer):
+    def __init__(self, users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda=False,
+                 user_item_rating_map=None, item_rating_map=None, c_size=None, s_size=None, n_items=None,
+                 checkpoint=False, model_path=None, model_name=None, X_val=None, y_val=None, lmbda=.1,
+                 parallel=False):
+
+        super().__init__(users, items, y_train, model, loss, n_epochs, batch_size, lr, loss_step_print, eps, use_cuda,
+                 user_item_rating_map, item_rating_map, c_size, s_size, n_items,
+                 checkpoint, model_path, model_name, X_val, y_val, lmbda, parallel)
+
+
+    def fit(self):
+
+        self.print_device_specs()
+
+        if self.X_val is not None:
+            _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        self.generator = self.get_generator(self.users, self.items, self.y_train, False)
+
+        while self.generator.epoch_cntr < self.n_epochs:
+
+            batch = self.generator.get_batch(as_tensor=True)
+
+            batch['users'] = batch['users'].to(self.device)
+            batch['items'] = batch['items'].to(self.device)
+            batch['y'] = batch['y'].to(self.device)
+
+            # zero gradient
+            self.optimizer.zero_grad()
+
+            recon_batch, mu, logvar = self.model.forward(batch['users'], batch['items'])
+            loss = self.loss(recon_batch, batch["y"], mu, logvar)
+
+            if self.n_gpu > 1:
+                loss = loss.mean()
+
+            loss.backward()
+            self.optimizer.step()
+            loss = loss.detach()
+            cum_loss += loss
+
+            if iter % self.loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / self.loss_step
+                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < self.eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            if self.generator.check():
+                # Check if epoch is ending. Checkpoint and get evaluation metrics
+                self.checkpoint_model(suffix=iter)
+                if self.X_val is not None:
+                    _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+            iter += 1
+
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
+
+        self.checkpoint_model(suffix='done')
+        return loss_arr
+
+
+    def predict(self, users, items, y=None, batch_size=32):
+
+        print("Getting predictions on device: {} - batch size: {}".format(self.device, batch_size))
+
+        self.generator.update_data(users=users, items=items,
+                                   y=y, shuffle=False,
+                                   batch_size=batch_size)
+        n = users.shape[0]
+        preds = list()
+
+        cntr = 0
+        while self.generator.epoch_cntr < 1:
+
+
+            test = self.generator.get_batch(as_tensor=True)
+
+            test['users'] = test['users'].to(self.device)
+            test['items'] = test['items'].to(self.device)
+
+            recon_batch, mu, logvar = self.model.forward(test['users'], test['items'])
+            preds_batch = torch.mean(mu, dim=1).detach().data.cpu().numpy()
+
             preds.append(preds_batch)
 
             progress = 100*(cntr / n)

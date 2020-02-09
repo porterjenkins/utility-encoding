@@ -6,7 +6,7 @@ from preprocessing.utils import load_dict_output
 from model.trainer import NeuralUtilityTrainer
 import numpy as np
 from model._loss import loss_mse
-from baselines.deep_fm import DeepFM
+from baselines.mf import MatrixFactorization
 import torch
 from experiments.utils import get_eval_metrics, log_output
 import argparse
@@ -34,9 +34,10 @@ parser.add_argument("--max_iter", type = int, help = "Length of sequences", defa
 
 
 
+
 args = parser.parse_args()
 
-MODEL_NAME = "dfm_ratings_{}_{}".format(args.dataset, args.loss)
+MODEL_NAME = "mf_ratings_{}_{}".format(args.dataset, args.loss)
 MODEL_DIR = cfg.vals['model_dir']
 TEST_BATCH_SIZE = 100
 RANDOM_SEED = 1990
@@ -86,7 +87,8 @@ n_test = get_test_sample_size(X_test.shape[0], k=TEST_BATCH_SIZE)
 X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
-model = DeepFM(field_dims=[stats["n_items"]], embed_dim=params["h_dim_size"], mlp_dims=(16, 16), dropout=0.2)
+model = MatrixFactorization(n_users=stats["n_users"], n_items=stats["n_items"], n_factors=params["h_dim_size"],
+                                dropout_p=.2)
 
 
 print("Model intialized")

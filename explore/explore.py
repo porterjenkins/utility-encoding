@@ -17,7 +17,7 @@ mm = MetaDataMap(get_meta_config())
 
 def load_model_for(name):
     model_dir = config[name]['model']
-    model = torch.load(model_dir + '/item_encoder_amazon_utility_done.pt')
+    model = torch.load(model_dir + '/item_encoder_amazon_utility_512_done.pt')
     return model
 
 
@@ -46,7 +46,7 @@ def map_asin_id(name, asin):
 def map_id_to_cat(name, idx):
     asin = mm.get_id_asin(name)[(str(int(idx)))]
     nm = mm.get_cat(name)
-    return nm[asin][0]
+    return nm[asin][-1]
 
 
 def get_also_bought(name, idx):
@@ -62,7 +62,7 @@ def do_explore(name):
     items = load_items(name)
     model = load_model_for(name)
 
-    arr = np.empty((0, 256))
+    arr = np.empty((0, 512))
     weights = model.embedding.weights.weight.data.to('cpu')
     labels = []
     i = 0
@@ -191,3 +191,4 @@ nm = mm.get_id_asin('home_kitchen')
 with open('Y.pt', 'wb') as outfile:
     import pickle
     pickle.dump(Y, outfile)
+do_explore('grocery')
