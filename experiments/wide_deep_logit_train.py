@@ -29,10 +29,6 @@ parser.add_argument("--s_size", type = int, help = "Size of supplement set", def
 parser.add_argument("--lmbda", type = float, help = "Size of supplement set", default=.1)
 parser.add_argument("--max_iter", type = int, help = "Length of sequences", default=None)
 
-
-
-
-
 args = parser.parse_args()
 
 MODEL_NAME = "wide_deep_choice_{}_{}".format(args.dataset, args.loss)
@@ -113,6 +109,9 @@ if params['loss'] == 'utility':
 elif params['loss'] == 'logit':
     print("logistic loss")
     trainer.fit()
+elif params["loss"] == "pairwise":
+    print("pairwise ranking loss")
+    trainer.fit_pairwise_ranking_loss()
 else:
     raise ValueError("loss must be in ['utility', 'logit']")
 

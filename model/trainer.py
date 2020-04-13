@@ -314,6 +314,87 @@ class NeuralUtilityTrainer(object):
         return loss_arr
 
 
+    def fit_pairwise_ranking_loss(self):
+
+        """see Rendle et al UAI'2009"""
+
+        self.print_device_specs()
+        self.model.use_sigmoid = False
+        assert(self.s_size == 1)
+
+        if self.X_val is not None:
+            _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+        loss_arr = []
+
+        iter = 0
+        cum_loss = 0
+        prev_loss = -1
+
+        self.generator = self.get_generator(self.users, self.items, self.y_train, True)
+
+        while self.generator.epoch_cntr < self.n_epochs:
+
+            batch = self.generator.get_batch(as_tensor=True)
+
+            batch['y'] = batch['y'].to(self.device)
+            batch['y_s'] = batch['y_s'].to(self.device)
+
+            batch['items'] = batch['items'].requires_grad_(True).to(self.device)
+            batch['x_s'] = batch['x_s'].requires_grad_(True).to(self.device)
+            batch['users'] = batch['users'].to(self.device)
+
+            y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
+            y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device).squeeze(-1)
+
+            y_hat_diff = y_hat - y_hat_s
+
+            # zero gradient
+            self.optimizer.zero_grad()
+
+            loss = self.loss(y_true=batch['y'], y_hat=torch.sigmoid(y_hat_diff))
+
+            if self.n_gpu > 1:
+                loss = loss.mean()
+
+            loss.backward()
+            self.optimizer.step()
+            loss = loss.detach()
+            cum_loss += loss
+
+            if iter % self.loss_step == 0:
+                if iter == 0:
+                    avg_loss = cum_loss
+                else:
+                    avg_loss = cum_loss / self.loss_step
+                print("iteration: {} - loss: {:.5f}".format(iter, avg_loss))
+                cum_loss = 0
+
+                loss_arr.append(avg_loss)
+
+                if abs(prev_loss - loss) < self.eps:
+                    print('early stopping criterion met. Finishing training')
+                    print("{:.4f} --> {:.5f}".format(prev_loss, loss))
+                    break
+                else:
+                    prev_loss = loss
+
+            if self.generator.check():
+                # Check if epoch is ending. Checkpoint and get evaluation metrics
+                self.checkpoint_model(suffix=iter)
+                if self.X_val is not None:
+                    _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
+
+            iter += 1
+
+            stop = self._check_max_iter(iter)
+            if stop:
+                break
+
+        self.checkpoint_model(suffix='done')
+        return loss_arr
+
+
     def predict(self, users, items, y=None, batch_size=32):
 
         print("Getting predictions on device: {} - batch size: {}".format(self.device, batch_size))
