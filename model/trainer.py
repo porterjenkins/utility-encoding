@@ -345,7 +345,11 @@ class NeuralUtilityTrainer(object):
             batch['users'] = batch['users'].to(self.device)
 
             y_hat = self.model.forward(batch['users'], batch['items']).to(self.device)
-            y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device).squeeze(-1)
+
+            y_hat_s = self.model.forward(batch['users'], batch['x_s']).to(self.device)
+
+            if y_hat_s.ndim == 3:
+                y_hat_s = y_hat_s.squeeze(-1)
 
             y_hat_diff = y_hat - y_hat_s
 
