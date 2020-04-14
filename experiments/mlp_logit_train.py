@@ -114,8 +114,11 @@ if params['loss'] == 'utility':
 elif params['loss'] == 'logit':
     print("logistic loss")
     trainer.fit()
+elif params["loss"] == "pairwise":
+    print("pairwise ranking loss")
+    trainer.fit_pairwise_ranking_loss()
 else:
-    raise ValueError("loss must be in ['utility', 'logit']")
+    raise ValueError("loss must be in ['utility', 'logit', 'pairwise']")
 
 users_test = X_test[:, 0].reshape(-1,1)
 items_test = X_test[:, 1].reshape(-1,1)
