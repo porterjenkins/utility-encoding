@@ -49,7 +49,6 @@ class MLP(torch.nn.Module):
             # vector = torch.nn.Dropout(p=0.5)(vector)
         y_hat = self.affine_output(vector)
         if self.use_logit:
-            print("use logit")
             y_hat = self.logistic(y_hat).squeeze(dim=-1)
 
         return y_hat
