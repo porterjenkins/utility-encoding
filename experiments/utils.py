@@ -4,6 +4,7 @@ from sklearn.metrics import mean_squared_error
 import os
 from datetime import datetime
 import math
+from scipy import stats
 
 def get_eval_metrics(output, at_k=5):
 
@@ -318,3 +319,27 @@ def permutationTest(x,y,nperm, method = 'mean', twoSided=True):
 
     pval = len(perm_ts[perm_ts > obs_diff])/nperm
     return pval
+
+
+def diff_means_t_stat(x_1, x_2, s_1, s_2, n):
+    """
+    Difference of means t stat (https://en.wikipedia.org/wiki/Student%27s_t-test#Independent_two-sample_t-test)
+        - the two sample sizes (that is, the number n of participants of each group) are equal;
+        - it can be assumed that the two distributions have the same variance;
+    :param x_1: sample mean group 1
+    :param x_2: sample mean group 2
+    :param s_1: std of group 1
+    :param s_2: std of group 2
+    :param n: sample size
+    :return:
+    """
+
+    std_pool = math.sqrt((s_1**2 + s_2**2) / 2)
+    t = (x_1 - x_2) / (std_pool * math.sqrt(2/n))
+
+    #t =  (x_1 - x_2) / math.sqrt(s_1**2 / n + s_2**2 / n)
+
+    df = 2 * n - 2
+    p = (1 - stats.t.cdf(t, df=df))*2
+
+    return np.round(t,4), np.round(p,4)
