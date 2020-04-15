@@ -55,8 +55,10 @@ params = {
             "eval_k": EVAL_K,
             "loss": args.loss,
             "lambda": args.lmbda,
-            "max_iter": args.max_iter
+            "max_iter": args.max_iter,
+            "use_logit": False if args.loss in ["pairwise", "pairwise+utility"] else True
         }
+
 
 
 print("Reading dataset")
@@ -89,7 +91,7 @@ y_test = y_test[:n_test, :]
 
 mlp = MLP({'num_users': stats['n_users'], 'num_items': stats['n_items'], 'latent_dim': params["h_dim_size"],
            'use_cuda':args.cuda, 'layers': [params['h_dim_size']*2, 64, 32],
-           'use_logit': True})
+           'use_logit': params["use_logit"]})
 
 
 print("Model intialized")
@@ -114,8 +116,14 @@ if params['loss'] == 'utility':
 elif params['loss'] == 'logit':
     print("logistic loss")
     trainer.fit()
+elif params["loss"] == "pairwise":
+    print("pairwise ranking loss")
+    trainer.fit_pairwise_ranking_loss()
+elif params["loss"] == "pairwise+utility":
+    print("pairwise + utility loss")
+    trainer.fit_pairwise_utility_loss()
 else:
-    raise ValueError("loss must be in ['utility', 'logit']")
+    raise ValueError("loss must be in ['utility', 'logit', 'pairwise', 'pairwise+utility']")
 
 users_test = X_test[:, 0].reshape(-1,1)
 items_test = X_test[:, 1].reshape(-1,1)
