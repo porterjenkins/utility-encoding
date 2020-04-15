@@ -54,7 +54,8 @@ params = {
             "eval_k": EVAL_K,
             "loss": args.loss,
             "lambda": args.lmbda,
-            "max_iter": args.max_iter
+            "max_iter": args.max_iter,
+            "use_logit": False if args.loss in ["pairwise", "pairwise+utility"] else True
         }
 
 
@@ -88,7 +89,7 @@ X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
 model = DeepFM(field_dims=[stats["n_items"]], embed_dim=params["h_dim_size"], mlp_dims=(16, 16),
-               dropout=0.2, use_logit=True)
+               dropout=0.2, use_logit=params["use_logit"])
 
 
 

@@ -55,7 +55,8 @@ params = {
             "eval_k": EVAL_K,
             "loss": args.loss,
             "lambda": args.lmbda,
-            "max_iter": args.max_iter
+            "max_iter": args.max_iter,
+            "use_logit": False if args.loss in ["pairwise", "pairwise+utility"] else True
         }
 
 
@@ -89,7 +90,7 @@ X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
 model = MatrixFactorization(n_users=stats["n_users"], n_items=stats["n_items"], n_factors=params["h_dim_size"],
-                                dropout_p=.2,  use_logit=True)
+                                dropout_p=.2,  use_logit=params["use_logit"])
 
 
 print("Model intialized")

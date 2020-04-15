@@ -50,7 +50,8 @@ params = {
             "eval_k": EVAL_K,
             "loss": args.loss,
             "lambda": args.lmbda,
-            "max_iter": args.max_iter
+            "max_iter": args.max_iter,
+            "use_logit": False if args.loss in ["pairwise", "pairwise+utility"] else True
         }
 
 
@@ -84,7 +85,7 @@ X_test = X_test[:n_test, :]
 y_test = y_test[:n_test, :]
 
 wide_deep = WideAndDeep(stats['n_items'], h_dim_size=params["h_dim_size"], fc1=64, fc2=32,
-                        use_cuda=args.cuda, use_logit=True)
+                        use_cuda=args.cuda, use_logit=params["use_logit"])
 
 
 print("Model intialized")

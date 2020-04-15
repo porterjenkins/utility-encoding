@@ -319,7 +319,6 @@ class NeuralUtilityTrainer(object):
         """see Rendle et al UAI'2009"""
 
         self.print_device_specs()
-        self.model.use_logit = False
         assert(self.s_size == 1)
 
         if self.X_val is not None:
@@ -402,7 +401,6 @@ class NeuralUtilityTrainer(object):
     def fit_pairwise_utility_loss(self):
 
         self.print_device_specs()
-        self.model.use_logit = False
 
         if self.X_val is not None:
             _ = self.get_validation_loss(self.X_val[:, 1:], self.y_val)
