@@ -438,12 +438,9 @@ class NeuralUtilityTrainer(object):
             y_hat_c = torch.sigmoid(self.model.forward(batch['users'], batch['x_c']).to(self.device))
             y_hat_s = torch.sigmoid(self.model.forward(batch['users'], batch['x_s']).to(self.device))
 
-            # paired sample
-            print(y_hat_s.shape)
-            y_hat_pair = y_hat_s[:, 0, :]
 
             # classify difference of each x_ui to the first sample x_ij
-            y_hat_diff = torch.sigmoid(y_hat - y_hat_pair)
+            y_hat_diff = torch.sigmoid(y_hat - y_hat_s[:, 0, :])
 
             # TODO: Make this function flexible in the loss type (e.g., MSE, binary CE)
             loss_u = utility_loss(y_hat_diff, torch.squeeze(y_hat_c), torch.squeeze(y_hat_s),
