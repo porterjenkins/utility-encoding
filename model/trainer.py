@@ -439,6 +439,7 @@ class NeuralUtilityTrainer(object):
             y_hat_s = torch.sigmoid(self.model.forward(batch['users'], batch['x_s']).to(self.device))
 
             # paired sample
+            print(y_hat_s.shape)
             y_hat_pair = y_hat_s[:, 0, :]
 
             # classify difference of each x_ui to the first sample x_ij
