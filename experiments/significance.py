@@ -7,9 +7,9 @@ from scipy.stats import ttest_ind
 
 
 data_dir = "/Volumes/Porter's Data/penn-state/data-sets/reco/results"
-model = "ncf"
-dataset = 'movie'
-task = "rating"
+model = "dfm"
+dataset = "amazon"
+task = "choice"
 n_perm = 1000
 
 if task == "choice":
@@ -30,11 +30,14 @@ for col in control.columns:
     mean_control = x_control.mean()
     mean_treatment = x_treatment.mean()
 
+    print("Mean Control: {:.3f}".format(mean_control))
+    print("Mean Treatment: {:.3f}".format(mean_treatment))
+
     mean_diff = mean_treatment - mean_control
 
-    print("Difference in means: {:.4f}".format(mean_diff))
+    print("Difference in means: {:.3f}".format(mean_diff))
     p = permutationTest(x_control, x_treatment, n_perm)
-    print("Permutation p-val: {:.4f}".format(p))
+    print("Permutation p-val: {:.3f}".format(p))
 
     t, p_val  = ttest_ind(x_control, x_treatment)
     print("Fisher p-val: {}".format(p_val))
