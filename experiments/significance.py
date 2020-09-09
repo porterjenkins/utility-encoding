@@ -7,10 +7,12 @@ from scipy.stats import ttest_ind
 
 
 data_dir = "/Volumes/Porter's Data/penn-state/data-sets/reco/results"
-model = "dfm"
+model = "ncf"
 dataset = "amazon"
 task = "choice"
 n_perm = 1000
+control = "pairwise"
+treatment = "pairwise_utility"
 
 if task == "choice":
     prediction = "logit"
@@ -19,13 +21,13 @@ elif task == "rating":
 else:
     raise NotImplementedError(task)
 
-control = pd.read_csv("{}/{}/{}_{}_{}_{}.txt".format(data_dir, model, model, dataset, task, prediction))
-treatment = pd.read_csv("{}/{}/{}_{}_{}_{}.txt".format(data_dir, model, model, dataset, task, "utility"))
+control_fname = pd.read_csv("{}/{}/{}_{}_{}_{}.txt".format(data_dir, model, model, dataset, task, control))
+treatment_fname = pd.read_csv("{}/{}/{}_{}_{}_{}.txt".format(data_dir, model, model, dataset, task, treatment))
 
-for col in control.columns:
+for col in control_fname.columns:
     print("Metric: {}".format(col))
-    x_control = control[col].values
-    x_treatment = treatment[col].values
+    x_control = control_fname[col].values
+    x_treatment = treatment_fname[col].values
 
     mean_control = x_control.mean()
     mean_treatment = x_treatment.mean()
