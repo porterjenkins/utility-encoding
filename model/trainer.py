@@ -350,6 +350,9 @@ class NeuralUtilityTrainer(object):
             if y_hat_s.ndim == 3:
                 y_hat_s = y_hat_s.squeeze(-1)
 
+            if y_hat.ndim == 3:
+                y_hat = y_hat.squeeze(-1)
+
             y_hat_diff = y_hat - y_hat_s
 
             # zero gradient
